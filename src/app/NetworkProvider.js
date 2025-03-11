@@ -9,7 +9,7 @@ export const NETWORKS = [
         name: 'Electroneum Testnet',
         chainId: '0x4f5e0c', // (decimal 5201420 in hex)
         rpc: 'https://rpc.ankr.com/electroneum_testnet',
-        factoryAddress: '0x0b64F3BF753646967baE5f508F4f14E99FB06ed4'
+        factoryAddress: '0x0b64F3BF753646967baE5f508F4f14E99FB06ed4',
         nativeCurrency: {
           name: 'Electroneum Test',
           symbol: 'ETNt',
