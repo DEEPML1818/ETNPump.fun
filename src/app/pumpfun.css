@@ -1,0 +1,230 @@
+/* pumpfun.css */
+
+/* GLOBAL STYLES */
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #141414, #1d1d1d, #141414);
+    color: #fff;
+  }
+  
+  /* PAGE CONTAINER */
+  .create-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    position: relative;
+  }
+  
+  /* GO BACK BUTTON */
+  .go-back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #aaa;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .go-back-btn:hover {
+    color: #fff;
+  }
+  
+  /* MAIN FORM CONTAINER */
+  .create-container {
+    background: rgba(31,31,31,0.9);
+    width: 100%;
+    max-width: 600px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    padding: 2rem;
+  }
+  
+  /* TITLE */
+  .create-title {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    font-weight: bold;
+  }
+  
+  /* CONNECT WALLET BUTTON */
+  .connect-wallet-btn {
+    display: inline-block;
+    background-color: #e91e63;
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 1rem;
+  }
+  
+  .connect-wallet-btn:hover {
+    background-color: #d81b60;
+  }
+  
+  /* FORM GROUPS */
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #ccc;
+    font-size: 0.9rem;
+  }
+  
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    background-color: #333;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+    padding: 0.6rem;
+    font-size: 0.95rem;
+    outline: none;
+  }
+  
+  .form-group textarea {
+    resize: none;
+  }
+  
+  /* FILE UPLOAD */
+  .file-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 2px dashed #555;
+    padding: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    color: #aaa;
+    margin-bottom: 1rem;
+  }
+  
+  .file-upload:hover {
+    border-color: #777;
+    color: #ccc;
+  }
+  
+  .file-upload svg {
+    width: 40px;
+    height: 40px;
+    fill: currentColor;
+    margin-bottom: 0.5rem;
+  }
+  
+  .file-upload span {
+    font-size: 0.9rem;
+  }
+  
+  .file-upload input {
+    display: none;
+  }
+  
+  /* TOGGLE ADVANCED */
+  .toggle-advanced {
+    color: #e91e63;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-top: 1rem;
+  }
+  
+  .toggle-advanced:hover {
+    color: #d81b60;
+  }
+  
+  /* ADVANCED SECTION */
+  .advanced-section {
+    margin-top: 1rem;
+    border-top: 1px solid #444;
+    padding-top: 1rem;
+  }
+  
+  /* CREATE BUTTON */
+  .create-button {
+    display: block;
+    width: 100%;
+    background-color: #e91e63;
+    color: #fff;
+    border: none;
+    padding: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    margin-top: 1.5rem;
+  }
+  
+  .create-button:hover {
+    background-color: #d81b60;
+  }
+  
+  .create-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+  
+  /* STATUS TEXT */
+  .status-text {
+    margin-top: 1rem;
+    color: #ccc;
+    font-size: 0.9rem;
+  }
+  
+  /* Tooltip container */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 220px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 0.5rem;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%; /* Position above the icon */
+  left: 50%;
+  margin-left: -110px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.8rem;
+}
+
+/* Arrow below tooltip text */
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%; /* At the bottom of the tooltip */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* Show the tooltip text on hover */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}

@@ -1,0 +1,351 @@
+/* pumpfun-router.css */
+
+.router-page {
+  background-color: #0e0e0e;
+  color: #eee;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  padding: 1rem;
+  min-height: 100vh;
+}
+
+/* Top Bar */
+.router-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.75rem;
+}
+
+.router-topbar .left-section h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #00d18f;
+}
+
+.router-topbar .left-section .router-address {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.router-topbar .right-section {
+  text-align: right;
+}
+
+.token-price span {
+  color: #00d18f;
+  font-weight: bold;
+}
+
+.user-account {
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+/* Main Content Layout */
+.router-main-content {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* Chart Column */
+.chart-column {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-box {
+  background-color: #1a1a1a;
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.chart-header span {
+  font-weight: bold;
+  color: #fff;
+}
+
+.timeframe-buttons button {
+  margin-left: 0.3rem;
+  padding: 0.3rem 0.5rem;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.timeframe-buttons button:hover {
+  background-color: #00d18f;
+  color: #000;
+}
+
+.trade-chart {
+  width: 100%;
+  height: 400px;
+}
+
+/* Buy/Sell Column */
+.trade-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.trade-box {
+  background-color: #1a1a1a;
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.trade-box h2 {
+  margin-top: 0;
+  color: #fff;
+}
+
+.input-group {
+  margin: 0.5rem 0;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  color: #ccc;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.5rem;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  color: #fff;
+  border-radius: 3px;
+}
+
+.buy-btn,
+.sell-btn {
+  width: 100%;
+  padding: 0.6rem;
+  background-color: #00d18f;
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.buy-btn:hover,
+.sell-btn:hover {
+  background-color: #00c37f;
+}
+
+.status-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #262626;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 0.85rem;
+}
+
+/* Chat Section */
+.chat-section {
+  background-color: #1a1a1a;
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.chat-section h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.chat-messages {
+  max-height: 250px;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+  border: 1px solid #333;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: #111;
+}
+
+.chat-message {
+  margin-bottom: 0.5rem;
+}
+
+.chat-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.2rem;
+}
+
+.chat-sender {
+  color: #00d18f;
+  margin-right: 0.5rem;
+}
+
+.chat-text {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.chat-input-box {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-input-box input {
+  flex: 1;
+  padding: 0.5rem;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  color: #fff;
+  border-radius: 3px;
+}
+
+.chat-input-box button {
+  padding: 0.5rem 1rem;
+  background-color: #00d18f;
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.chat-input-box button:hover {
+  background-color: #00c37f;
+}
+
+/* Tabs Container */
+.trade-panel {
+  background-color: #2a2a2a;
+  padding: 1rem;
+  border-radius: 6px;
+  width: 260px; /* Adjust to match your design */
+}
+
+/* Tabs Row */
+.trade-tabs {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.6rem 0;
+  background-color: #3a3a3a;
+  color: #ccc;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tab-btn.active {
+  background-color: #00d18f; /* Green for Buy */
+  color: #000;
+}
+
+.tab-btn.active-sell {
+  background-color: #ff5c5c; /* Pinkish for Sell */
+  color: #000;
+}
+
+/* Slippage link */
+.slippage-link {
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+/* Panel common */
+.input-row {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.input-row input {
+  width: 100%;
+  padding: 0.5rem;
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.token-label {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 0.9rem;
+}
+
+/* Quick fill buttons row */
+.quick-fill {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.quick-fill button {
+  flex: 1;
+  padding: 0.3rem 0;
+  background-color: #3a3a3a;
+  border: none;
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.quick-fill button:hover {
+  background-color: #4a4a4a;
+}
+
+/* Place Trade Button */
+.place-trade {
+  width: 100%;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.buy-trade {
+  background-color: #00d18f;
+  color: #000;
+}
+
+.sell-trade {
+  background-color: #ff5c5c;
+  color: #000;
+}

@@ -1,0 +1,236 @@
+/* pumpfun-split-dashboard.css */
+
+/* Full-page container */
+.dashboard-split-page {
+    min-height: 100vh;
+    background: linear-gradient(to bottom, #141414, #1d1d1d, #141414);
+    color: #fff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Top bar (optional) */
+  .dashboard-topbar {
+    background: #222;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  
+  .dashboard-topbar .title {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  
+  /* Main content area: left panel (token list), right panel (token details) */
+  .dashboard-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  /* Left panel: token list */
+  .token-list-panel {
+    flex: 1;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    max-width: 300px;
+  }
+  
+  /* Search box at top of left panel */
+  .list-search {
+    background: #222;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .list-search input {
+    flex: 1;
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.4rem;
+    color: #fff;
+    font-size: 0.85rem;
+  }
+  
+  /* Token list container */
+  .token-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .token-item {
+    background: rgba(31,31,31,0.85);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.6rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  
+  .token-item:hover {
+    background-color: #333;
+  }
+  
+  .token-item img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .token-item .token-info {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .token-item .token-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+  }
+  
+  .token-item .token-desc {
+    font-size: 0.75rem;
+    color: #aaa;
+  }
+  
+  /* Right panel: token details */
+  .token-detail-panel {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  /* Top area in the detail panel for chart/price */
+  .detail-top {
+    flex: 1;
+    background: #1f1f1f;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .detail-top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .detail-top-header .detail-token-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  
+  .detail-top-header .detail-token-price {
+    font-size: 1rem;
+    color: #0f0;
+  }
+  
+  .chart-container {
+    flex: 1;
+    background: #111;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 0.85rem;
+  }
+  
+  /* Buy/Sell/Stats area under the chart (optional) */
+  .detail-bottom {
+    flex: 1;
+    display: flex;
+    gap: 1rem;
+  }
+  
+  /* Live trades feed */
+  .live-trades {
+    flex: 1;
+    background: #1f1f1f;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  
+  .live-trades-header {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    color: #ccc;
+  }
+  
+  .trade-item {
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+  
+  /* Additional token stats or buy/sell panel */
+  .token-stats {
+    flex: 1;
+    background: #1f1f1f;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .token-stats h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Just an example buy/sell buttons */
+  .token-stats .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .buy-btn, .sell-btn {
+    flex: 1;
+    background: #00d18f;
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .sell-btn {
+    background: #d1335b;
+  }
+  
+  .buy-btn:hover {
+    background: #00b67c;
+  }
+  
+  .sell-btn:hover {
+    background: #b12c4f;
+  }
+  
