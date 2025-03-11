@@ -254,7 +254,7 @@ export default function RootLayout({ children }) {
         </div>
         <main>{children}</main>
         <footer style={layoutStyles.footer}>
-          &copy; {new Date().getFullYear()} PumpFun Clone
+          &copy; {new Date().getFullYear()} Welcome to ETNPump.fun
         </footer>
       </body>
     </html>
