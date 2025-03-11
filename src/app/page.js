@@ -7,51 +7,45 @@ export default function Home() {
       <main className={styles.main}>
         <Image
           className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
+          src="/etnpump-logo.svg"
+          alt="ETNPump.fun logo"
+          width={200}
+          height={50}
           priority
         />
+        <h1>Welcome to ETNPump.fun</h1>
+        <p>The ultimate decentralized token launching and trading platform on ETN Smart Chain.</p>
+        
         <ol>
-          <li>
-            Get started by editing <code>src/app/page.js</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
+          <li>Launch your token instantly with our smart contract factory.</li>
+          <li>Experience a fair, automated bonding curve pricing mechanism.</li>
+          <li>Trade safely with anti-dump measures and dynamic fees.</li>
         </ol>
 
         <div className={styles.ctas}>
           <a
             className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/dashboard"
           >
             <Image
               className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
+              src="/rocket.svg"
+              alt="Launch icon"
               width={20}
               height={20}
             />
-            Deploy now
+            Launch Your Token
           </a>
           <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/docs"
             className={styles.secondary}
           >
-            Read our docs
+            Read the Docs
           </a>
         </div>
       </main>
       <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="/learn">
           <Image
             aria-hidden
             src="/file.svg"
@@ -59,13 +53,9 @@ export default function Home() {
             width={16}
             height={16}
           />
-          Learn
+          Learn More
         </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="/examples">
           <Image
             aria-hidden
             src="/window.svg"
@@ -75,11 +65,7 @@ export default function Home() {
           />
           Examples
         </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="https://etnpump.fun">
           <Image
             aria-hidden
             src="/globe.svg"
@@ -87,7 +73,7 @@ export default function Home() {
             width={16}
             height={16}
           />
-          Go to nextjs.org →
+          Visit ETNPump.fun →
         </a>
       </footer>
     </div>
