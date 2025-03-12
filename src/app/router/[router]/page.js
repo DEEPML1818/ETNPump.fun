@@ -1,24 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Web3 from 'web3';
 import BN from 'bn.js';
 import '../../pumpfun-router.css';
-
-// Import Chart.js with a line chart configuration
-import { Chart as ChartJS, CategoryScale, LinearScale, TimeScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
-import 'chartjs-adapter-date-fns';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  TimeScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend
-);
+import NivoLineChart from './NivoLineChart'; // Adjust the path if needed
 
 // --- Router Contract ABI ---
 const routerABI = [
@@ -89,7 +76,6 @@ const routerABI = [
     "stateMutability": "view",
     "type": "function"
   },
-  // The PriceSnapshot event is emitted on every trade to record the price history.
   {
     "anonymous": false,
     "inputs": [
@@ -130,32 +116,24 @@ export default function RouterPage() {
   const params = useParams();
   const routerAddress = params.router || params.token;
 
-  const chartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
-
+  // State variables
   const [account, setAccount] = useState("");
   const [status, setStatus] = useState("");
   const [tokenAddress, setTokenAddress] = useState("");
   const [tokenName, setTokenName] = useState("Loading...");
   const [tokenSymbol, setTokenSymbol] = useState("");
   const [decimals, setDecimals] = useState(18);
-
   const [price, setPrice] = useState("0");
   const [trades, setTrades] = useState([]);
-
   const [buyEthAmount, setBuyEthAmount] = useState("");
   const [sellTokenAmount, setSellTokenAmount] = useState("");
   const [slippageTolerance, setSlippageTolerance] = useState("10");
-
   const [isBuy, setIsBuy] = useState(true);
-
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
-
-  // New state to hold our trading line data (price history)
   const [priceHistory, setPriceHistory] = useState([]);
 
-  // Initialization
+  // Initialization and periodic updates
   useEffect(() => {
     if (!routerAddress) {
       setStatus("Router address not specified in URL.");
@@ -164,7 +142,6 @@ export default function RouterPage() {
     initPage();
   }, [routerAddress]);
 
-  // Periodic updates (price, trades, chat, and price history)
   useEffect(() => {
     const interval = setInterval(() => {
       if (routerAddress) {
@@ -176,13 +153,6 @@ export default function RouterPage() {
     }, 10000);
     return () => clearInterval(interval);
   }, [routerAddress]);
-
-  // Update chart when priceHistory changes (we use it for trading line)
-  useEffect(() => {
-    if (chartRef.current) {
-      updateChart();
-    }
-  }, [priceHistory]);
 
   async function initPage() {
     if (!window.ethereum) {
@@ -230,7 +200,6 @@ export default function RouterPage() {
     }
   }
 
-  // Fetch trading line data from PriceSnapshot events
   async function fetchPriceHistory() {
     try {
       const web3 = new Web3(window.ethereum);
@@ -239,13 +208,11 @@ export default function RouterPage() {
         fromBlock: 0,
         toBlock: "latest"
       });
-      // Map events into data points: x is timestamp (in ms), y is price in native unit
       const history = events.map(ev => {
         const ts = Number(ev.returnValues.timestamp) * 1000;
         const pricePoint = Number(web3.utils.fromWei(ev.returnValues.price, "ether"));
         return { x: ts, y: pricePoint };
       });
-      // Sort by timestamp
       history.sort((a, b) => a.x - b.x);
       setPriceHistory(history);
     } catch (err) {
@@ -253,87 +220,10 @@ export default function RouterPage() {
     }
   }
 
-  // Process trade events into candlestick data (original function; not used in line chart)
-  function processCandlestickData(tradeData) {
-    const grouped = {};
-    tradeData.forEach(trade => {
-      const ts = Number(trade.timestamp);
-      if (!ts) return;
-      const date = new Date(ts * 1000);
-      const key = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes()).getTime();
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(trade);
-    });
-
-    const candlesticks = Object.keys(grouped).sort().map(timeKey => {
-      const groupTrades = grouped[timeKey];
-      let open, high, low, close;
-      groupTrades.forEach((t, i) => {
-        if (Number(t.tokenAmount) === 0) return;
-        let tradePrice = 0;
-        if (t.type === "buy") {
-          tradePrice = Number(Web3.utils.fromWei(String(t.netEthSpent), "ether")) / Number(t.tokenAmount);
-        } else if (t.type === "sell") {
-          tradePrice = Number(Web3.utils.fromWei(String(t.ethReturned), "ether")) / Number(t.tokenAmount);
-        }
-        if (!tradePrice || isNaN(tradePrice) || !isFinite(tradePrice)) {
-          tradePrice = i === 0 ? 0 : close;
-        }
-        if (i === 0) {
-          open = high = low = close = tradePrice;
-        } else {
-          if (tradePrice > high) high = tradePrice;
-          if (tradePrice < low) low = tradePrice;
-          close = tradePrice;
-        }
-      });
-      return { x: new Date(Number(timeKey)), o: open || 0, h: high || 0, l: low || 0, c: close || 0 };
-    });
-
-    return candlesticks;
-  }
-
-  // Update the chart to display a trading line based on priceHistory
-  function updateChart() {
-    if (!chartRef.current) return;
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-    }
-    const ctx = chartRef.current.getContext('2d');
-    chartInstanceRef.current = new ChartJS(ctx, {
-      type: 'line',
-      data: {
-        datasets: [{
-          label: `${tokenSymbol || 'Token'} Price History`,
-          data: priceHistory,
-          fill: false,
-          borderColor: 'rgba(75, 192, 192, 1)',
-          tension: 0.1,
-          pointRadius: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'minute' },
-            title: { display: true, text: 'Time' }
-          },
-          y: {
-            title: { display: true, text: 'Price' }
-          }
-        },
-        plugins: { legend: { display: true } }
-      }
-    });
-  }
-
   async function fetchTrades() {
     try {
       const web3 = new Web3(window.ethereum);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-      // Fetch buy events
       const purchaseEvents = await routerContract.getPastEvents("TokensPurchased", {
         fromBlock: 0,
         toBlock: "latest"
@@ -350,7 +240,6 @@ export default function RouterPage() {
           };
         })
       );
-      // Fetch sell events
       const saleEvents = await routerContract.getPastEvents("TokensSold", {
         fromBlock: 0,
         toBlock: "latest"
@@ -369,7 +258,6 @@ export default function RouterPage() {
       );
       const allTrades = [...purchases, ...sales].sort((a, b) => a.timestamp - b.timestamp);
       setTrades(allTrades);
-      // We update the chart using priceHistory, so no need to call updateChart(trades) here.
     } catch (err) {
       console.error("Error fetching trades:", err);
     }
@@ -490,15 +378,35 @@ export default function RouterPage() {
                 <button>1d</button>
               </div>
             </div>
-            <canvas ref={chartRef} className="trade-chart" />
+            {priceHistory.length ? (
+              <NivoLineChart
+                priceHistory={priceHistory}
+                currentPrice={price}
+                tokenSymbol={tokenSymbol}
+              />
+            ) : (
+              <div className="no-data-message">
+                No trades yet. Make a trade to see the chart update.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Trade Panel */}
         <div className="trade-panel">
           <div className="trade-tabs">
-            <button className={isBuy ? "tab-btn active" : "tab-btn"} onClick={() => setIsBuy(true)}>buy</button>
-            <button className={!isBuy ? "tab-btn active-sell" : "tab-btn"} onClick={() => setIsBuy(false)}>sell</button>
+            <button
+              className={isBuy ? "tab-btn active" : "tab-btn"}
+              onClick={() => setIsBuy(true)}
+            >
+              buy
+            </button>
+            <button
+              className={!isBuy ? "tab-btn active-sell" : "tab-btn"}
+              onClick={() => setIsBuy(false)}
+            >
+              sell
+            </button>
           </div>
           <div className="slippage-link">set max slippage</div>
           {isBuy ? (
