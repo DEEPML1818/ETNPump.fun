@@ -1,4 +1,4 @@
-<p align="center"><img src="src/app/etnpumpfunlogo.png" width="480"\></p>
+<p align="center"><img src="src/app/etnpumpfunlogo.png" width="140"\></p>
 
 # ETNPump.fun: Next-Generation Liquidity & Memecoin Pump Environment
 
