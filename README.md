@@ -218,13 +218,15 @@ ETNPump.fun is not just another liquidity pool project; it is poised to transfor
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-org/pumpfun.git
+git clone https://github.com/DEEPML1818/ETNPump.fun.git
 cd pumpfun
+```
 
 Install dependencies:
 
 ```bash
 npm install
+```
 
 # Deployment & Interaction
 
