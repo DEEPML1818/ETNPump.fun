@@ -764,17 +764,34 @@ export default function RouterPage() {
 async function handleSell() {
 	if (!account)
 	  return setStatus("Connect your wallet first.");
-	if (!sellTokenAmount || Number(sellTokenAmount) <= 0)
+	if (!sellTokenAmount || Number(sellTokenAmount.replace(/,/g, '')) <= 0)
 	  return setStatus("Enter a valid token amount to sell.");
 	setStatus("Selling tokens...");
 	try {
 	  const web3 = new Web3(window.ethereum);
 	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-	  // Use the imported BN instead of web3.utils.toBN
-	  const tokenAmount = new BN(10)
-		.pow(new BN(decimals))
-		.mul(new BN(sellTokenAmount));
-	  await routerContract.methods.sellTokens(tokenAmount.toString()).send({ from: account });
+	  
+	  // Helper: Convert an individual token amount string to its BN representation.
+	  const convertToTokenAmount = (amountStr) => {
+		// amountStr is in whole tokens (e.g., "10")
+		return new BN(10).pow(new BN(decimals)).mul(new BN(amountStr));
+	  };
+  
+	  if (sellTokenAmount.includes(',')) {
+		// Batch sell mode: multiple comma separated values.
+		const amounts = sellTokenAmount.split(',').map(s => s.trim()).filter(Boolean);
+		if (amounts.length === 0)
+		  return setStatus("Enter valid token amounts to sell.");
+  
+		const tokenAmounts = amounts.map(amt => convertToTokenAmount(amt).toString());
+  
+		await routerContract.methods.batchSell(tokenAmounts).send({ from: account });
+	  } else {
+		// Single sell mode.
+		const tokenAmount = convertToTokenAmount(sellTokenAmount);
+		await routerContract.methods.sellTokens(tokenAmount.toString()).send({ from: account });
+	  }
+	  
 	  setStatus("Sell transaction confirmed.");
 	  fetchPrice();
 	  fetchTrades();
