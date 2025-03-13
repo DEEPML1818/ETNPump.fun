@@ -3,17 +3,17 @@ import React from 'react';
 import { ResponsiveLine } from '@nivo/line';
 
 const NivoLineChart = ({ priceHistory, currentPrice, tokenSymbol }) => {
-  // If no price history exists, use a dummy data point (current time and price)
+  // Use a dummy data point if no price history exists
   const dataPoints = priceHistory.length > 0 
     ? priceHistory 
     : [{ x: Date.now(), y: parseFloat(currentPrice) }];
 
-  // Format data for Nivo: each series is an object with an id and a data array.
+  // Nivo expects an array of series; here we have one series
   const chartData = [
     {
       id: tokenSymbol || 'Token Price',
       data: dataPoints.map(pt => ({
-        x: new Date(pt.x), // Use Date object for x-axis
+        x: new Date(pt.x), // x-axis as Date objects
         y: pt.y,
       })),
     },
