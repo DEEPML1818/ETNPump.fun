@@ -168,10 +168,28 @@ export default function CreateTokenPage() {
           <label style={styles.label}>Symbol *</label>
           <input type="text" placeholder="e.g. PFT" style={styles.input} value={symbol} onChange={e => setSymbol(e.target.value)} />
         </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Initial Supply *</label>
-          <input type="number" placeholder="1000000 (for 1 million)" style={styles.input} value={supply} onChange={e => setSupply(e.target.value)} />
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Max Supply *</label>
+            <input
+              type="number"
+              placeholder="1000000000 (for 1 billion)"
+              style={styles.input}
+              value={supply}
+              min="1000000000"
+              max="10000000000000"
+              onChange={e => {
+                const value = Number(e.target.value);
+                if (value < 1000000000) {
+                  setSupply(1000000000);
+                } else if (value > 10000000000000) {
+                  setSupply(10000000000000);
+                } else {
+                  setSupply(value);
+                }
+              }}
+            />
         </div>
+
         <div style={styles.formGroup}>
           <label style={styles.label}>Description *</label>
           <textarea rows={3} placeholder="Describe your token..." style={{ ...styles.input, height: '70px', resize: 'none' }} value={description} onChange={e => setDescription(e.target.value)} />

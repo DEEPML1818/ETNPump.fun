@@ -590,6 +590,7 @@ export default function RouterPage() {
   const [decimals, setDecimals] = useState(18);
   const [price, setPrice] = useState("0");
   const [trades, setTrades] = useState([]);
+  const [sellPercentage, setSellPercentage] = useState("");
   const [buyEthAmount, setBuyEthAmount] = useState("");
   const [sellTokenAmount, setSellTokenAmount] = useState("");
   const [slippageTolerance, setSlippageTolerance] = useState("10");
@@ -789,9 +790,49 @@ async function handleSell() {
 	  } else {
 		// Single sell mode.
 		const tokenAmount = convertToTokenAmount(sellTokenAmount);
-		await routerContract.methods.sellTokens(tokenAmount.toString()).send({ from: account });
+		await routerContract.methods.batchSell([tokenAmount.toString()]).send({ from: account });
 	  }
 	  
+	  setStatus("Sell transaction confirmed.");
+	  fetchPrice();
+	  fetchTrades();
+	  fetchPriceHistory();
+	} catch (err) {
+	  console.error("Sell error:", err);
+	  setStatus(err.message);
+	}
+  }
+  async function handleSell() {
+	if (!account) return setStatus("Connect your wallet first.");
+	if (!sellTokenAmount && !sellPercentage)
+	  return setStatus("Enter a valid token amount or percentage to sell.");
+	  
+	setStatus("Selling tokens...");
+  
+	try {
+	  const web3 = new Web3(window.ethereum);
+	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+	  const tokenContract = new web3.eth.Contract(tokenABI, tokenAddress);
+  
+	  // Helper: Convert an individual token amount string to its BN representation.
+	  const convertToTokenAmount = (amountStr) => {
+		return new BN(10).pow(new BN(decimals)).mul(new BN(amountStr));
+	  };
+  
+	  let tokenAmount;
+  
+	  if (sellPercentage) {
+		// Fetch user's total balance
+		const balance = await tokenContract.methods.balanceOf(account).call();
+		const percentageDecimal = new BN(sellPercentage).mul(new BN(balance)).div(new BN(100));
+		tokenAmount = percentageDecimal;
+	  } else {
+		// Single token amount (fixed value)
+		tokenAmount = convertToTokenAmount(sellTokenAmount);
+	  }
+  
+	  await routerContract.methods.batchSell([tokenAmount.toString()]).send({ from: account });
+  
 	  setStatus("Sell transaction confirmed.");
 	  fetchPrice();
 	  fetchTrades();
@@ -909,27 +950,37 @@ async function handleSell() {
               </button>
             </div>
           ) : (
-            <div className="sell-panel">
-              <div className="input-row">
-                <input 
-                  type="number" 
-                  placeholder="0.00" 
-                  value={sellTokenAmount} 
-                  onChange={(e) => setSellTokenAmount(e.target.value)}
-                />
-                <span className="token-label">{tokenSymbol}</span>
-              </div>
-              <div className="quick-fill">
-                <button onClick={() => setSellTokenAmount("0")}>reset</button>
-                <button onClick={() => setSellTokenAmount("25")}>25%</button>
-                <button onClick={() => setSellTokenAmount("50")}>50%</button>
-                <button onClick={() => setSellTokenAmount("75")}>75%</button>
-                <button onClick={() => setSellTokenAmount("100")}>100%</button>
-              </div>
-              <button className="place-trade sell-trade" onClick={handleSell}>
-                place trade
-              </button>
-            </div>
+			<div className="sell-panel">
+			<div className="input-row">
+			  <input
+				type="number"
+				placeholder="0.00"
+				value={sellTokenAmount}
+				onChange={(e) => setSellTokenAmount(e.target.value)}
+			  />
+			  <span className="token-label">{tokenSymbol}</span>
+			</div>
+			{/* New input for percentage */}
+			<div className="input-row">
+			  <input
+				type="text"
+				placeholder="Enter percentage to sell (e.g. 50)"
+				value={sellPercentage}
+				onChange={(e) => setSellPercentage(e.target.value)}
+			  />
+			  <span className="token-label">%</span>
+			</div>
+			<div className="quick-fill">
+			  <button onClick={() => { setSellTokenAmount("0"); setSellPercentage(""); }}>reset</button>
+			  <button onClick={() => setSellPercentage("25")}>25%</button>
+			  <button onClick={() => setSellPercentage("50")}>50%</button>
+			  <button onClick={() => setSellPercentage("75")}>75%</button>
+			  <button onClick={() => setSellPercentage("100")}>100%</button>
+			</div>
+			<button className="place-trade sell-trade" onClick={handleSell}>
+			  place trade
+			</button>
+		  </div>
           )}
           {status && (
             <div className="status-box">
