@@ -200,8 +200,26 @@ export default function CreateTokenPage() {
         </div>
         <div style={styles.formGroup}>
           <label style={styles.label}>Target Native (in native coin)</label>
-          <input type="text" placeholder="e.g. 10" style={styles.input} value={targetNative} onChange={e => setTargetNative(e.target.value)} />
-        </div>
+           <input
+              type="number"
+              placeholder="100000 (for 100k )"
+              style={styles.input}
+              value={targetNative}
+              min="100000"
+              max="1000000000"
+              onChange={e => {
+                const value = Number(e.target.value);
+                if (value < 100000) {
+                  setTargetNative(100000);
+                } else if (value > 1000000000) {
+                  setTargetNative(1000000000);
+                } else {
+                  setTargetNative(value);
+                }
+              }}
+            />
+        </div>    
+        
 
         {/* Advanced Toggle */}
         <div style={styles.arrowContainer} onClick={toggleAdvanced}>
