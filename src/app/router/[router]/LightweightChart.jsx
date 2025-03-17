@@ -42,7 +42,7 @@ export default function LightweightChart({ data, colors = {} }) {
     });
   
     // Set the provided data.
-    console.log(data)
+    console.info(data)
     series.setData(data);
 
     window.addEventListener('resize', handleResize);

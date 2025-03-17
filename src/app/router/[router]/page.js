@@ -673,9 +673,10 @@ export default function RouterPage() {
 	  const web3 = new Web3(window.ethereum);
 	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
 	  const history = await routerContract.methods.getPriceHistory().call();
+	  console.log(history)
 	  // Convert the returned data into an array.
 	  const historyArray = Array.isArray(history) ? history : Object.values(history);
-	  
+	  console.log(historyArray)
 	  const formattedHistory = historyArray.map(item => {
 		if (Array.isArray(item)) {
 		  const [unixTime, price] = item;
@@ -694,6 +695,7 @@ export default function RouterPage() {
 	  }).filter(Boolean);
 	  
 	  setPriceHistory(formattedHistory);
+	  console.log(formattedHistory)
 	} catch (err) {
 	  console.error("Error fetching price history:", err);
 	}
