@@ -357,9 +357,21 @@ const routerABI = [
 		"name": "getPriceHistory",
 		"outputs": [
 			{
-				"internalType": "uint256[]",
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "price",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct PriceSnapshotStruct[]",
 				"name": "",
-				"type": "uint256[]"
+				"type": "tuple[]"
 			}
 		],
 		"stateMutability": "view",
@@ -429,7 +441,12 @@ const routerABI = [
 		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "timestamp",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "price",
 				"type": "uint256"
 			}
 		],
@@ -532,19 +549,6 @@ const routerABI = [
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_maxSellAmount",
-				"type": "uint256"
-			}
-		],
-		"name": "updateMaxSellAmount",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
