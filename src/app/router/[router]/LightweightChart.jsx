@@ -1,7 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { createChart, AreaSeries, ColorType } from 'lightweight-charts';
+import { createChart, AreaSeries, ColorType, PriceLineStyle } from 'lightweight-charts';
 
-export default function LightweightChart({ data, colors = {} }) {
+// Helper: Convert wei to ether if needed.
+const fromWei = (wei) => Number(wei) / 1e18;
+
+export default function LightweightChart({ priceHistoryData, convertPrice = false, colors = {} }) {
   const {
     backgroundColor = 'white',
     lineColor = '#2962FF',
@@ -13,12 +16,12 @@ export default function LightweightChart({ data, colors = {} }) {
   const chartContainerRef = useRef();
 
   useEffect(() => {
-    // Resize handler to keep chart responsive
+    if (!chartContainerRef.current) return;
+
     const handleResize = () => {
       chart.applyOptions({ width: chartContainerRef.current.clientWidth });
     };
 
-    // Create the chart with the given layout options.
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 300,
@@ -29,29 +32,76 @@ export default function LightweightChart({ data, colors = {} }) {
     });
     chart.timeScale().fitContent();
 
-    // Add the area series with custom colors.
     const series = chart.addSeries(AreaSeries, {
       lineColor: lineColor,
       topColor: areaTopColor,
       bottomColor: areaBottomColor,
-    });
-  
-    series.applyOptions({
       lastValueVisible: false,
       priceLineVisible: false,
     });
-  
-    // Set the provided data.
-    console.info(data)
-    series.setData(data);
+
+    // Convert priceHistoryData (assumed as [timestamp, price] tuples) into the required format.
+    const formattedData = priceHistoryData
+      .map(([unixTime, price]) => ({
+        time: new Date(Number(unixTime) * 1000).toISOString().split('T')[0],
+        value: convertPrice ? fromWei(price) : Number(price),
+      }))
+      // Remove consecutive duplicate time values.
+      .filter((point, index, arr) =>
+        index === 0 || point.time !== arr[index - 1].time
+      );
+
+    console.info(formattedData);
+    series.setData(formattedData);
+
+    // Optional: Create price lines (if desired)
+    if (formattedData.length > 0) {
+      let minPrice = formattedData[0].value;
+      let maxPrice = formattedData[0].value;
+      formattedData.forEach((point) => {
+        if (point.value < minPrice) minPrice = point.value;
+        if (point.value > maxPrice) maxPrice = point.value;
+      });
+      const avgPrice = (minPrice + maxPrice) / 2;
+      const lineWidth = 2;
+      const minPriceLine = {
+        price: minPrice,
+        color: '#ef5350',
+        lineWidth: lineWidth,
+        lineStyle: PriceLineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'Min Price',
+      };
+      const avgPriceLine = {
+        price: avgPrice,
+        color: 'black',
+        lineWidth: lineWidth,
+        lineStyle: PriceLineStyle.Dotted,
+        axisLabelVisible: true,
+        title: 'Avg Price',
+      };
+      const maxPriceLine = {
+        price: maxPrice,
+        color: '#26a69a',
+        lineWidth: lineWidth,
+        lineStyle: PriceLineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'Max Price',
+      };
+
+      series.createPriceLine(minPriceLine);
+      series.createPriceLine(avgPriceLine);
+      series.createPriceLine(maxPriceLine);
+
+      chart.timeScale().fitContent();
+    }
 
     window.addEventListener('resize', handleResize);
-
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [data, backgroundColor, lineColor, textColor, areaTopColor, areaBottomColor]);
+  }, [priceHistoryData, convertPrice, backgroundColor, lineColor, textColor, areaTopColor, areaBottomColor]);
 
-  return <div ref={chartContainerRef} />;
+  return <div ref={chartContainerRef} style={{ width: '100%', height: '300px', position: 'relative' }} />;
 }

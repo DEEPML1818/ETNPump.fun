@@ -953,29 +953,23 @@ async function handleSell() {
               </div>
             </div>
             {priceHistory.length ? (
-              <LightweightChart 
-                data={priceHistory} 
-                colors={{
-                  backgroundColor: 'white',
-                  lineColor: '#2962FF',
-                  textColor: 'black',
-                  areaTopColor: '#2962FF',
-                  areaBottomColor: 'rgba(41, 98, 255, 0.28)',
-                }}
-              />
-            ) : (
-              <div
-                className="no-data-message"
-                style={{
-                  textAlign: "center",
-                  color: "#888",
-                  padding: "20px",
-                  fontSize: "1rem",
-                }}
-              >
-                No trades yet. Make a trade to see the chart update.
-              </div>
-            )}
+				<LightweightChart 
+					priceHistoryData={priceHistory}
+					convertPrice={true}
+					colors={{
+					backgroundColor: 'white',
+					lineColor: '#2962FF',
+					textColor: 'black',
+					areaTopColor: '#2962FF',
+					areaBottomColor: 'rgba(41, 98, 255, 0.28)',
+					}}
+				/>
+				) : (
+				<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
+					No trades yet. Make a trade to see the chart update.
+				</div>
+				)}
+
           </div>
         </div>
 
