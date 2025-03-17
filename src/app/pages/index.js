@@ -7,6 +7,10 @@ const HomePage = () => {
     <div className="text-center">
       <h1 className="text-4xl font-bold mb-4">Welcome to PumpFun Clone</h1>
       <p className="mb-8">A decentralized platform with a secure bonding curve mechanism and dynamic fees.</p>
+      <script type="text/javascript" src="/charting_library/charting_library.js"></script>
+      <script type="text/javascript" src="/charting_library/datafeeds/udf/dist/polyfills.js"></script>
+      <script type="text/javascript" src="/charting_library/datafeeds/udf/dist/bundle.js"></script>
+      <div id="tradingview_advanced_chart"></div>
       <Link href="/dashboard">
         <a className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
           Enter Dashboard
