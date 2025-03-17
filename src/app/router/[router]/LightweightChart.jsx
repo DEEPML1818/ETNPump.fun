@@ -17,11 +17,30 @@ export default function LightweightChart({ priceHistoryData, convertPrice = fals
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
-
-    const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-    };
-
+  
+    console.info("Raw priceHistoryData:", priceHistoryData);
+  
+    // Ensure priceHistoryData is an array before processing
+    if (!Array.isArray(priceHistoryData) || priceHistoryData.length === 0) {
+      console.warn("Invalid or empty priceHistoryData:", priceHistoryData);
+      return;
+    }
+  
+    const formattedData = priceHistoryData
+      .filter((entry) => Array.isArray(entry) && entry.length === 2) // Ensure valid tuples
+      .map(([unixTime, price]) => ({
+        time: new Date(Number(unixTime) * 1000).toISOString().split('T')[0],
+        value: convertPrice ? fromWei(price) : Number(price),
+      }))
+      .filter((point, index, arr) => index === 0 || point.time !== arr[index - 1].time);
+  
+    console.info("Formatted Data for Chart:", formattedData);
+  
+    if (formattedData.length === 0) {
+      console.warn("No valid formatted data for the chart.");
+      return;
+    }
+  
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 300,
@@ -31,7 +50,7 @@ export default function LightweightChart({ priceHistoryData, convertPrice = fals
       },
     });
     chart.timeScale().fitContent();
-
+  
     const series = chart.addSeries(AreaSeries, {
       lineColor: lineColor,
       topColor: areaTopColor,
@@ -39,69 +58,15 @@ export default function LightweightChart({ priceHistoryData, convertPrice = fals
       lastValueVisible: false,
       priceLineVisible: false,
     });
-
-    // Convert priceHistoryData (assumed as [timestamp, price] tuples) into the required format.
-    const formattedData = priceHistoryData
-      .map(([unixTime, price]) => ({
-        time: new Date(Number(unixTime) * 1000).toISOString().split('T')[0],
-        value: convertPrice ? fromWei(price) : Number(price),
-      }))
-      // Remove consecutive duplicate time values.
-      .filter((point, index, arr) =>
-        index === 0 || point.time !== arr[index - 1].time
-      );
-
-    console.info(formattedData);
+  
     series.setData(formattedData);
-
-    // Optional: Create price lines (if desired)
-    if (formattedData.length > 0) {
-      let minPrice = formattedData[0].value;
-      let maxPrice = formattedData[0].value;
-      formattedData.forEach((point) => {
-        if (point.value < minPrice) minPrice = point.value;
-        if (point.value > maxPrice) maxPrice = point.value;
-      });
-      const avgPrice = (minPrice + maxPrice) / 2;
-      const lineWidth = 2;
-      const minPriceLine = {
-        price: minPrice,
-        color: '#ef5350',
-        lineWidth: lineWidth,
-        lineStyle: PriceLineStyle.Dashed,
-        axisLabelVisible: true,
-        title: 'Min Price',
-      };
-      const avgPriceLine = {
-        price: avgPrice,
-        color: 'black',
-        lineWidth: lineWidth,
-        lineStyle: PriceLineStyle.Dotted,
-        axisLabelVisible: true,
-        title: 'Avg Price',
-      };
-      const maxPriceLine = {
-        price: maxPrice,
-        color: '#26a69a',
-        lineWidth: lineWidth,
-        lineStyle: PriceLineStyle.Dashed,
-        axisLabelVisible: true,
-        title: 'Max Price',
-      };
-
-      series.createPriceLine(minPriceLine);
-      series.createPriceLine(avgPriceLine);
-      series.createPriceLine(maxPriceLine);
-
-      chart.timeScale().fitContent();
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
+  
+    window.addEventListener("resize", () => {
+      chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+    });
+  
+    return () => chart.remove();
   }, [priceHistoryData, convertPrice, backgroundColor, lineColor, textColor, areaTopColor, areaBottomColor]);
-
+  
   return <div ref={chartContainerRef} style={{ width: '100%', height: '300px', position: 'relative' }} />;
 }
