@@ -35,8 +35,14 @@ export default function LightweightChart({ data, colors = {} }) {
       topColor: areaTopColor,
       bottomColor: areaBottomColor,
     });
-
+  
+    series.applyOptions({
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+  
     // Set the provided data.
+    console.log(data)
     series.setData(data);
 
     window.addEventListener('resize', handleResize);
