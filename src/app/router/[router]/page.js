@@ -682,33 +682,24 @@ export default function RouterPage() {
 	  const web3 = new Web3(window.ethereum);
 	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
 	  const history = await routerContract.methods.getPriceHistory().call();
-	  console.log(history)
-	  // Convert the returned data into an array.
 	  const historyArray = Array.isArray(history) ? history : Object.values(history);
-	  console.log(historyArray)
 	  const formattedHistory = historyArray.map(item => {
-		if (Array.isArray(item)) {
-		  const [unixTime, price] = item;
+		if (item && typeof item === 'object') {
 		  return {
-			time: new Date(Number(unixTime) * 1000).toISOString().split('T')[0],
-			value: Number(web3.utils.fromWei(price, "ether"))
-		  };
-		} else if (item && typeof item === 'object') {
-		  return {
-			time: new Date(Number(item.timestamp) * 1000).toISOString().split('T')[0],
+			time: Number(item.timestamp) * 1000, // Convert to ms
 			value: Number(web3.utils.fromWei(item.price, "ether"))
 		  };
-		} else {
-		  return null;
 		}
+		return null;
 	  }).filter(Boolean);
 	  
 	  setPriceHistory(formattedHistory);
-	  console.log(formattedHistory)
+	  window.priceHistoryData = formattedHistory; // Expose for datafeed
 	} catch (err) {
 	  console.error("Error fetching price history:", err);
 	}
   }
+  
   
 
   async function fetchTrades() {
@@ -915,68 +906,59 @@ async function handleSell() {
       {/* Main Content */}
       <div className="router-main-content">
         {/* Chart Column */}
-        <div className="chart-column" style={{ width: "100%", marginBottom: "20px" }}>
-          <div
-            className="chart-box"
-            style={{
-              padding: "20px",
-              backgroundColor: "#fff",
-              borderRadius: "8px",
-              boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
-              margin: "0 auto",
-              maxWidth: "800px",
-            }}
-          >
-            <div
-              className="chart-header"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "10px",
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
-                {tokenSymbol || "Token"} Price History
-              </h2>
-              <div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
-                {["1m", "5m", "15m", "1h", "1d"].map((label) => (
-                  <button
-                    key={label}
-                    style={{
-                      padding: "5px 10px",
-                      fontSize: "0.9rem",
-                      border: "none",
-                      backgroundColor: "#f0f0f0",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {priceHistory.length ? (
-				<LightweightChart 
-					priceHistoryData={priceHistory}
-					convertPrice={true}
-					colors={{
-					backgroundColor: 'white',
-					lineColor: '#2962FF',
-					textColor: 'black',
-					areaTopColor: '#2962FF',
-					areaBottomColor: 'rgba(41, 98, 255, 0.28)',
+        {/* Chart Column */}
+		<div className="chart-column" style={{ width: "100%", marginBottom: "20px" }}>
+		<div
+			className="chart-box"
+			style={{
+			padding: "20px",
+			backgroundColor: "#fff",
+			borderRadius: "8px",
+			boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
+			margin: "0 auto",
+			maxWidth: "800px",
+			}}
+		>
+			<div
+			className="chart-header"
+			style={{
+				display: "flex",
+				justifyContent: "space-between",
+				alignItems: "center",
+				marginBottom: "10px",
+			}}
+			>
+			<h2 style={{ margin: 0, fontSize: "1.5rem" }}>
+				{tokenSymbol || "Token"} Price History
+			</h2>
+			<div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
+				{["1m", "5m", "15m", "1h", "1d"].map((label) => (
+				<button
+					key={label}
+					style={{
+					padding: "5px 10px",
+					fontSize: "0.9rem",
+					border: "none",
+					backgroundColor: "#f0f0f0",
+					borderRadius: "4px",
+					cursor: "pointer",
 					}}
-				/>
-				) : (
-				<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
-					No trades yet. Make a trade to see the chart update.
-				</div>
-				)}
+				>
+					{label}
+				</button>
+				))}
+			</div>
+			</div>
+			{priceHistory.length ? (
+			<TradingViewChart />
+			) : (
+			<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
+				No trades yet. Make a trade to see the chart update.
+			</div>
+			)}
+		</div>
+		</div>
 
-          </div>
-        </div>
 
 
 
