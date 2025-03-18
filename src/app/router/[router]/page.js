@@ -4,9 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Web3 from 'web3';
 import BN from 'bn.js';
+import dynamic from 'next/dynamic';
 import '../../pumpfun-router.css';
 // We'll remove NivoLineChart and use our new LightweightChart
 import LightweightChart from './LightweightChart'; // Adjust path if needed
+
+// Dynamically import the TradingViewChart component to ensure it renders only on the client side
+const TradingViewChart = dynamic(() => import('./TradingViewChart'), { ssr: false });
+
 
 // --- Router Contract ABI (as provided) ---
 const routerABI = [
