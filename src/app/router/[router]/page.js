@@ -908,55 +908,56 @@ async function handleSell() {
 			<div className="router-main-content">
         {/* Chart Column */}
         <div className="chart-column" style={{ width: "100%", marginBottom: "20px" }}>
-          <div
-            className="chart-box"
-            style={{
-              padding: "20px",
-              backgroundColor: "#fff",
-              borderRadius: "8px",
-              boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
-              margin: "0 auto",
-              maxWidth: "800px",
-            }}
-          >
-            <div
-              className="chart-header"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "10px",
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
-                {tokenSymbol || "Token"} Price History
-              </h2>
-              <div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
-                {["1m", "5m", "15m", "1h", "1d"].map((label) => (
-                  <button
-                    key={label}
-                    style={{
-                      padding: "5px 10px",
-                      fontSize: "0.9rem",
-                      border: "none",
-                      backgroundColor: "#f0f0f0",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {priceHistory.length ? (
-              <TradingViewChart symbol={tokenSymbol} />
-            ) : (
-              <div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
-                No trades yet. Make a trade to see the chart update.
-              </div>
-            )}
-          </div>
+		<div
+			className="chart-box"
+			style={{
+				padding: "20px",
+				backgroundColor: "#fff",
+				borderRadius: "8px",
+				boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
+				margin: "0 auto",
+				maxWidth: "1200px", // Increased width
+				width: "100%", // Ensure the width is set to 100%
+			}}
+			>
+			<div
+				className="chart-header"
+				style={{
+				display: "flex",
+				justifyContent: "space-between",
+				alignItems: "center",
+				marginBottom: "10px",
+				}}
+			>
+				<h2 style={{ margin: 0, fontSize: "1.5rem" }}>
+				{tokenSymbol || "Token"} Price History
+				</h2>
+				<div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
+				{["1m", "5m", "15m", "1h", "1d"].map((label) => (
+					<button
+					key={label}
+					style={{
+						padding: "5px 10px",
+						fontSize: "0.9rem",
+						border: "none",
+						backgroundColor: "#f0f0f0",
+						borderRadius: "4px",
+						cursor: "pointer",
+					}}
+					>
+					{label}
+					</button>
+				))}
+				</div>
+			</div>
+			{priceHistory.length ? (
+				<TradingViewChart symbol={tokenSymbol} />
+			) : (
+				<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
+				No trades yet. Make a trade to see the chart update.
+				</div>
+			)}
+			</div>
         </div>
 
 

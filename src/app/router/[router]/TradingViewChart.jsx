@@ -10,18 +10,28 @@ const TradingViewChart = ({ symbol }) => {
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      new window.TradingView.widget({
-        autosize: true,
-        symbol: symbol || 'NASDAQ:AAPL',
-        interval: 'D',
-        timezone: 'Etc/UTC',
-        theme: 'light',
-        style: '1',
-        locale: 'en',
-        toolbar_bg: '#f1f3f6',
-        enable_publishing: false,
-        container_id: containerRef.current.id,
-      });
+      try {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: symbol || 'NASDAQ:AAPL',
+          interval: 'D', // Use Daily interval
+          timezone: 'Etc/UTC',
+          theme: 'light',
+          style: '3', // Style 3 corresponds to the area chart
+          locale: 'en',
+          toolbar_bg: '#f1f3f6',
+          enable_publishing: false,
+          container_id: containerRef.current.id,
+          datafeed: "https://demo_feed.tradingview.com",
+        });
+        console.log('TradingView widget loaded successfully');
+      } catch (error) {
+        console.error('Error loading TradingView widget:', error);
+      }
+    };
+
+    script.onerror = (error) => {
+      console.error('Error loading TradingView script:', error);
     };
 
     containerRef.current.appendChild(script);
@@ -33,7 +43,7 @@ const TradingViewChart = ({ symbol }) => {
     };
   }, [symbol]);
 
-  return <div id="tradingview_chart" ref={containerRef} style={{ height: '500px' }} />;
+  return <div id="tradingview_chart" ref={containerRef} style={{ height: '500px', width: '100%' }} />;
 };
 
 export default TradingViewChart;
