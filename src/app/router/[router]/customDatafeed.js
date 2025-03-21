@@ -5,7 +5,7 @@ class CustomDatafeed {
 
   onReady(callback) {
     setTimeout(() => callback({
-      supported_resolutions: ['1', '1D', '1W', '1M'],
+      supported_resolutions: ['1', '5', '15', '60', 'D', 'W', 'M'],
     }), 0);
   }
 
@@ -20,7 +20,7 @@ class CustomDatafeed {
       has_intraday: true,
       has_daily: true,
       has_weekly_and_monthly: true,
-      supported_resolutions: ['1', '1D', '1W', '1M'],
+      supported_resolutions: ['1', '5', '15', '60', 'D', 'W', 'M'],
     }), 0);
   }
 
