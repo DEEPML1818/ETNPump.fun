@@ -885,10 +885,10 @@ async function handleSell() {
   }
 
   const sampleData = [
-	{ date: '2023-10-01', price: 100 },
-	{ date: '2023-10-02', price: 101 },
-	{ date: '2023-10-03', price: 102 },
-
+	{ date: '2023-10-01T00:00:00Z', price: 100 },
+	{ date: '2023-10-01T00:01:00Z', price: 101 },
+	{ date: '2023-10-01T00:02:00Z', price: 102 },
+	// Add more data points for each minute
   ];
 
   return (

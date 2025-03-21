@@ -15,7 +15,7 @@ const TradingViewChart = ({ symbol, data }) => {
         new window.TradingView.widget({
           autosize: true,
           symbol: symbol || 'NASDAQ:AAPL',
-          interval: 'D', // Use Daily interval
+          interval: '1', // Use 1-minute interval
           timezone: 'Etc/UTC',
           theme: 'light',
           style: '3', // Style 3 corresponds to the area chart
