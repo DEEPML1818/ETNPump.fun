@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import CustomDatafeed from './customDatafeed';
 
-const TradingViewChart = ({ symbol }) => {
+const TradingViewChart = ({ symbol, data }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -22,7 +23,7 @@ const TradingViewChart = ({ symbol }) => {
           toolbar_bg: '#f1f3f6',
           enable_publishing: false,
           container_id: containerRef.current.id,
-          datafeed: "https://demo_feed.tradingview.com",
+          datafeed: new CustomDatafeed(data),
         });
         console.log('TradingView widget loaded successfully');
       } catch (error) {
@@ -41,7 +42,7 @@ const TradingViewChart = ({ symbol }) => {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [symbol]);
+  }, [symbol, data]);
 
   return <div id="tradingview_chart" ref={containerRef} style={{ height: '500px', width: '100%' }} />;
 };

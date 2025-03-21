@@ -884,6 +884,13 @@ async function handleSell() {
     }
   }
 
+  const sampleData = [
+	{ date: '2023-10-01', price: 100 },
+	{ date: '2023-10-02', price: 101 },
+	{ date: '2023-10-03', price: 102 },
+
+  ];
+
   return (
     <div className="router-page">
       {/* Top Bar */}
@@ -951,7 +958,7 @@ async function handleSell() {
 				</div>
 			</div>
 			{priceHistory.length ? (
-				<TradingViewChart symbol={tokenSymbol} />
+				<TradingViewChart symbol={tokenSymbol} data={sampleData}  />
 			) : (
 				<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
 				No trades yet. Make a trade to see the chart update.
