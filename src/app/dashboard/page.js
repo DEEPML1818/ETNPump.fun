@@ -84,7 +84,10 @@ export default function DashboardPage() {
           });
           // Parse events into token data
           const tokenData = creationEvents.map(ev => {
-            const { creator, tokenAddress, routerAddress, name, symbol, initialSupply, timestamp, description, telegram, xProfile, website, imageURL } = ev.returnValues;
+            const {
+              creator, tokenAddress, routerAddress, name, symbol, initialSupply,
+              timestamp, description, telegram, xProfile, website, imageURL
+            } = ev.returnValues;
             const createdAtMs = Number(timestamp) * 1000;
             return { creator, tokenAddress, routerAddress, name, symbol, initialSupply, createdAt: createdAtMs, description, telegram, xProfile, website, imageURL };
           });
@@ -144,13 +147,15 @@ export default function DashboardPage() {
       {/* Animated Ticker */}
       <div className="ticker-container">
         <div className="ticker-text">
-          {"Live feed: new tokens & trades will appear here..."}
+          Live feed: new tokens & trades will appear here...
         </div>
       </div>
       {/* Dashboard Header */}
       <div className="dashboard-header">
         <h1>[start a new coin]</h1>
-        <p className="subtext">{account ? `Connected as ${account}` : 'Not connected'}</p>
+        <p className="subtext">
+          {account ? `Connected as ${account}` : 'Not connected'}
+        </p>
       </div>
       {/* Top Actions */}
       <div className="top-actions">
@@ -182,41 +187,41 @@ export default function DashboardPage() {
       {status && <p style={{ textAlign: 'center', marginBottom: '1rem' }}>{status}</p>}
       {/* Token Feed */}
       <div className="token-feed">
-        {filteredTokens.map((token, idx) => {
-          const timeAgo = timeSince(token.createdAt);
-          const boughtReadable = (Number(token.bought) / 1e18).toFixed(2);
-          const displayImage = token.imageURL && token.imageURL.trim() !== ""
-            ? token.imageURL
-            : "https://via.placeholder.com/64?text=No+Img";
-          return (
-            <div className="token-row" key={idx}>
-              <img src={displayImage} alt="token" className="token-img" />
-              <div className="token-info">
-                <div className="token-name">{token.name} ({token.symbol})</div>
-                <div className="token-desc">{token.description}</div>
-                <div className="token-meta">Created {timeAgo} ago</div>
-                <div className="token-meta">Initial Supply: {Number(token.initialSupply) / 1e18}</div>
-                <div className="token-meta">Tokens Bought: {boughtReadable}</div>
-                <div className="token-socials">
-                  {token.telegram && (<a href={token.telegram} target="_blank" rel="noopener noreferrer">Telegram</a>)}
-                  {token.xProfile && (<a href={token.xProfile} target="_blank" rel="noopener noreferrer">X</a>)}
-                  {token.website && (<a href={token.website} target="_blank" rel="noopener noreferrer">Website</a>)}
-                </div>
-              </div>
-              <div className="token-actions">
-                <Link href={`/router/${token.routerAddress}`}>
-                  <button className="trade-btn">Trade</button>
-                </Link>
-              </div>
-            </div>
-          );
-        })}
-        {filteredTokens.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#ccc' }}>
-            No tokens match your search/filter.
-          </p>
-        )}
+  {filteredTokens.map((token, idx) => {
+    const timeAgo = timeSince(token.createdAt);
+    const displayImage = token.imageURL && token.imageURL.trim() !== ""
+      ? token.imageURL
+      : "https://via.placeholder.com/64?text=No+Img";
+
+    return (
+      <div className="token-card" key={idx}>
+        <img src={displayImage} alt="token" className="token-img" />
+        <div className="token-info">
+          <div className="token-name">
+            {token.name} ({token.symbol})
+          </div>
+          <div className="token-desc">
+            {token.description}
+          </div>
+          <div className="token-meta">
+            Created {timeAgo} ago
+          </div>
+        </div>
+        <div className="token-actions">
+          <Link href={`/router/${token.routerAddress}`}>
+            <button className="trade-btn">Trade</button>
+          </Link>
+        </div>
       </div>
+    );
+  })}
+  {filteredTokens.length === 0 && (
+    <p style={{ textAlign: 'center', color: '#ccc' }}>
+      No tokens match your search/filter.
+    </p>
+  )}
+</div>
+
     </div>
   );
 }

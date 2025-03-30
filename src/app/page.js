@@ -7,10 +7,10 @@ export default function Home() {
       <main className={styles.main}>
         <Image
           className={styles.logo}
-          src="/etnpump-logo.svg"
+          src="/etnpumpfunlogo.png"
           alt="ETNPump.fun logo"
           width={200}
-          height={50}
+          height={200}
           priority
         />
         <h1>Welcome to ETNPump.fun</h1>
@@ -29,7 +29,7 @@ export default function Home() {
           >
             <Image
               className={styles.logo}
-              src="/rocket.svg"
+              src="/rocket.png"
               alt="Launch icon"
               width={20}
               height={20}

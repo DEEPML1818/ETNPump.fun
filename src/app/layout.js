@@ -3,6 +3,7 @@
 
 import { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Web3 from 'web3';
 import Web3Modal from 'web3modal';
 import WalletConnectProvider from '@walletconnect/web3-provider';
@@ -53,6 +54,33 @@ function NetworkProvider({ children }) {
     <NetworkContext.Provider value={{ selectedNetwork, setSelectedNetwork }}>
       {children}
     </NetworkContext.Provider>
+  );
+}
+
+// Logo component with a logo image and a "BETA" badge.
+function Logo() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <Image 
+        src="/etnpumpfunlogo.png"  // now points to the file in public folder
+        alt="ETNPump.fun Logo" 
+        width={40} 
+        height={40} 
+        style={{ marginRight: '8px' }}
+      />
+      <span 
+        style={{
+          background: '#00d18f',
+          padding: '0.2rem 0.5rem',
+          borderRadius: '4px',
+          color: '#fff',
+          fontSize: '0.9rem',
+          fontWeight: 'bold'
+        }}
+      >
+        BETA
+      </span>
+    </div>
   );
 }
 
@@ -190,12 +218,34 @@ function MainLayout({ children }) {
 
   // Layout styles (can be inline or external)
   const layoutStyles = {
-    header: { background: '#222', color: '#fff', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    header: { 
+      background: '#222', 
+      color: '#fff', 
+      padding: '0.8rem 1rem', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center' 
+    },
+    leftHeader: { display: 'flex', alignItems: 'center', gap: '1rem' },
     navLink: { marginRight: '1rem', color: 'inherit', textDecoration: 'none' },
     rightHeader: { display: 'flex', alignItems: 'center', gap: '1rem' },
     accountText: { fontSize: '0.9rem' },
-    connectBtn: { background: '#00d18f', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' },
-    disconnectBtn: { background: '#ff1744', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' },
+    connectBtn: { 
+      background: '#00d18f', 
+      border: 'none', 
+      color: '#fff', 
+      padding: '0.5rem 1rem', 
+      borderRadius: '4px', 
+      cursor: 'pointer' 
+    },
+    disconnectBtn: { 
+      background: '#ff1744', 
+      border: 'none', 
+      color: '#fff', 
+      padding: '0.5rem 1rem', 
+      borderRadius: '4px', 
+      cursor: 'pointer' 
+    },
     networkSelect: { padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' },
     footer: { background: '#222', color: '#ccc', textAlign: 'center', padding: '0.8rem 1rem' }
   };
@@ -203,10 +253,14 @@ function MainLayout({ children }) {
   return (
     <>
       <header style={layoutStyles.header}>
-        <nav>
-          <Link href="/create-token" style={layoutStyles.navLink}>Create Token</Link>
-          <Link href="/dashboard" style={layoutStyles.navLink}>Dashboard</Link>
-        </nav>
+        <div style={layoutStyles.leftHeader}>
+          {/* Logo and stage badge */}
+          <Logo />
+          <nav>
+            <Link href="/create-token" style={layoutStyles.navLink}>Create Token</Link>
+            <Link href="/dashboard" style={layoutStyles.navLink}>Dashboard</Link>
+          </nav>
+        </div>
         <div style={layoutStyles.rightHeader}>
           <select
             value={selectedNetwork.chainId.toLowerCase()}
@@ -233,7 +287,7 @@ function MainLayout({ children }) {
           )}
         </div>
       </header>
-      <main>{/* Your main content here */}{children}</main>
+      <main>{children}</main>
       <footer style={layoutStyles.footer}>
         &copy; {new Date().getFullYear()} Welcome to ETNPump.fun
       </footer>
