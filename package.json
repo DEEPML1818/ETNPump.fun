@@ -12,6 +12,7 @@
     "@nivo/line": "^0.88.0",
     "@tailwindcss/postcss": "^4.0.9",
     "@walletconnect/web3-provider": "^1.8.0",
+    "apexcharts": "^4.5.0",
     "bn.js": "^5.2.1",
     "chart.js": "^3.9.1",
     "chartjs-adapter-date-fns": "^3.0.0",
@@ -20,6 +21,7 @@
     "lightweight-charts": "^5.0.3",
     "next": "^15.2.0",
     "react": "^19.0.0",
+    "react-apexcharts": "^1.7.0",
     "react-dom": "^19.0.0",
     "web3": "^4.16.0",
     "web3modal": "^1.9.12"

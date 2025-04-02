@@ -1,18 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Web3 from 'web3';
-import BN from 'bn.js';
-import dynamic from 'next/dynamic';
-import '../../pumpfun-router.css';
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
+import Web3 from "web3";
+import BN from "bn.js";
+import dynamic from "next/dynamic";
+import "../../pumpfun-router.css";
 
-// We'll remove NivoLineChart and use our new LightweightChart
-import LightweightChart from './LightweightChart'; // Adjust path if needed
-
-// Dynamically import the TradingViewChart component to ensure it renders only on the client side
-
-const TradingViewChart = dynamic(() => import('./TradingViewChart'), { ssr: false });
+// Dynamically import ApexCharts to avoid SSR issues.
+const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 // --- Router Contract ABI (as provided) ---
 const routerABI = [
@@ -588,82 +584,219 @@ const tokenABI = [
   }
 ];
 
+
+// Bucket interval in seconds.
+const BUCKET_INTERVAL = 60; // 1-minute intervals
+
+// Define bucket interval (in seconds)
+const AGGREGATOR_INTERVAL = BUCKET_INTERVAL;
+
+async function startAggregator(routerAddress, aggregatorBuckets) {
+  if (!routerAddress) return;
+  if (aggregatorBuckets[routerAddress]) return; // already started
+
+  aggregatorBuckets[routerAddress] = {};
+
+  // Import ethers asynchronously
+  const { ethers } = await import("ethers");
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const contract = new ethers.Contract(routerAddress, routerABI, provider);
+
+  // Listen for TradeExecuted events.
+  contract.on("TradeExecuted", (trader, tradeType, timestamp, ethAmount, tokenAmount, price) => {
+    try {
+      const ts = timestamp.toNumber();
+      const p = parseFloat(ethers.utils.formatUnits(price, 18));
+      const vol = parseFloat(ethers.utils.formatUnits(ethAmount, 18));
+      const bucketStart = Math.floor(ts / AGGREGATOR_INTERVAL) * AGGREGATOR_INTERVAL;
+      const buckets = aggregatorBuckets[routerAddress];
+      if (!buckets[bucketStart]) {
+        buckets[bucketStart] = { startTime: bucketStart, open: p, high: p, low: p, close: p, volume: vol };
+      } else {
+        buckets[bucketStart].high = Math.max(buckets[bucketStart].high, p);
+        buckets[bucketStart].low = Math.min(buckets[bucketStart].low, p);
+        buckets[bucketStart].close = p;
+        buckets[bucketStart].volume += vol;
+      }
+      console.log(`Off-chain (TradeExecuted): Price ${p} at bucket ${bucketStart}`);
+    } catch (err) {
+      console.error("Error processing TradeExecuted event:", err);
+    }
+  });
+
+  // Listen for PriceSnapshot events.
+  contract.on("PriceSnapshot", (timestamp, price) => {
+    try {
+      const ts = timestamp.toNumber();
+      const p = parseFloat(ethers.utils.formatUnits(price, 18));
+      const bucketStart = Math.floor(ts / AGGREGATOR_INTERVAL) * AGGREGATOR_INTERVAL;
+      const buckets = aggregatorBuckets[routerAddress];
+      if (!buckets[bucketStart]) {
+        buckets[bucketStart] = { startTime: bucketStart, open: p, high: p, low: p, close: p, volume: 0 };
+      } else {
+        buckets[bucketStart].high = Math.max(buckets[bucketStart].high, p);
+        buckets[bucketStart].low = Math.min(buckets[bucketStart].low, p);
+        buckets[bucketStart].close = p;
+      }
+      console.log(`Off-chain (PriceSnapshot): Price ${p} at bucket ${bucketStart}`);
+    } catch (err) {
+      console.error("Error processing PriceSnapshot event:", err);
+    }
+  });
+
+  console.log(`Started aggregator for router ${routerAddress}`);
+}
+
+function getAggregatedData(routerAddress, aggregatorBuckets) {
+  const buckets = aggregatorBuckets[routerAddress] || {};
+  const bucketArray = Object.values(buckets);
+  bucketArray.sort((a, b) => a.startTime - b.startTime);
+  return bucketArray;
+}
+
+// Fallback: Fetch getPriceHistory from contract and convert it to OHLCV data.
+async function fetchFallbackPriceHistory(routerAddress) {
+	try {
+	  const web3 = new Web3(window.ethereum);
+	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+	  const history = await routerContract.methods.getPriceHistory().call();
+	  const historyArray = Array.isArray(history) ? history : Object.values(history);
+	  const fallbackData = historyArray.map((item, index) => {
+		// Attempt to get timestamp and price from either named properties or indexes.
+		const ts = item.timestamp || item[0];
+		const pr = item.price || item[1];
+		if (!ts || !pr) return null;
+		const time = Number(ts) * 1000; // Convert seconds to ms.
+		const p = parseFloat(web3.utils.fromWei(pr, "ether"));
+		return {
+		  startTime: Math.floor(time / 1000), // store bucket start time in seconds
+		  open: p,
+		  high: p,
+		  low: p,
+		  close: p,
+		  volume: 0,
+		};
+	  }).filter(Boolean);
+	  console.log("Fallback getPriceHistory:", fallbackData);
+	  return fallbackData;
+	} catch (error) {
+	  console.error("Fallback getPriceHistory error:", error);
+	  return [];
+	}
+  }
+
+// ----- Error Boundary for ApexChart -----
+import React from "react";
+class ChartErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ApexChart Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div>Error rendering chart: {this.state.error.message}</div>;
+    }
+    return this.props.children;
+  }
+}
+
+// ----- Router Page Component -----
+
 export default function RouterPage() {
-	const params = useParams();
-	const routerAddress = params.router || params.token;
-  
-	// State hooks
-	const [account, setAccount] = useState("");
-	const [status, setStatus] = useState("");
-	const [tokenAddress, setTokenAddress] = useState("");
-	const [tokenName, setTokenName] = useState("Loading...");
-	const [tokenSymbol, setTokenSymbol] = useState("");
-	const [decimals, setDecimals] = useState(18);
-	const [price, setPrice] = useState("0");
-	const [trades, setTrades] = useState([]);
-	const [sellPercentage, setSellPercentage] = useState("");
-	const [buyEthAmount, setBuyEthAmount] = useState("");
-	const [sellTokenAmount, setSellTokenAmount] = useState("");
-	const [slippageTolerance, setSlippageTolerance] = useState("10");
-	const [isBuy, setIsBuy] = useState(true);
-	const [chatMessages, setChatMessages] = useState([]);
-	const [chatInput, setChatInput] = useState("");
-	const [priceHistory, setPriceHistory] = useState([]);
-  
-	useEffect(() => {
-		if (!routerAddress) {
-		  setStatus("Router address not specified in URL.");
-		  return;
-		}
-		initPage();
-	  }, [routerAddress]);
-	
-	  // Periodic updates every 10 seconds
-	  useEffect(() => {
-		const interval = setInterval(() => {
-		  if (routerAddress) {
-			fetchPrice();
-			fetchTrades();
-			fetchChatMessages();
-			fetchPriceHistory();
-		  }
-		}, 10000);
-		return () => clearInterval(interval);
-	  }, [routerAddress]);
-	
-	  async function initPage() {
-		if (!window.ethereum) {
-		  setStatus("Please install MetaMask.");
-		  return;
-		}
-		try {
-		  const web3 = new Web3(window.ethereum);
-		  const accounts = await web3.eth.requestAccounts();
-		  if (accounts.length) setAccount(accounts[0]);
-	
-		  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-		  const tAddress = await routerContract.methods.token().call();
-		  setTokenAddress(tAddress);
-	
-		  const tokenContract = new web3.eth.Contract(tokenABI, tAddress);
-		  const [name, symbol, tokenDecimals] = await Promise.all([
-			tokenContract.methods.name().call(),
-			tokenContract.methods.symbol().call(),
-			tokenContract.methods.decimals().call()
-		  ]);
-		  setTokenName(name);
-		  setTokenSymbol(symbol);
-		  setDecimals(Number(tokenDecimals));
-	
-		  await fetchPrice();
-		  await fetchTrades();
-		  await fetchChatMessages();
-		  await fetchPriceHistory();
-		} catch (err) {
-		  console.error("Initialization error:", err);
-		  setStatus("Error initializing page. Check console.");
-		}
-	  }
+  const params = useParams();
+  const routerAddress = params.router || params.token;
+
+  // Basic state hooks.
+  const [account, setAccount] = useState("");
+  const [status, setStatus] = useState("");
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [tokenName, setTokenName] = useState("Loading...");
+  const [tokenSymbol, setTokenSymbol] = useState("");
+  const [decimals, setDecimals] = useState(18);
+  const [price, setPrice] = useState("0");
+  const [trades, setTrades] = useState([]);
+  const [sellPercentage, setSellPercentage] = useState("");
+  const [buyEthAmount, setBuyEthAmount] = useState("");
+  const [sellTokenAmount, setSellTokenAmount] = useState("");
+  const [slippageTolerance, setSlippageTolerance] = useState("10");
+  const [isBuy, setIsBuy] = useState(true);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [aggregatedData, setAggregatedData] = useState([]);
+
+  // Ref to hold aggregator buckets.
+  const aggregatorRef = useRef({});
+
+  // Start aggregator and update aggregated data every 5 seconds.
+  useEffect(() => {
+    if (!routerAddress) {
+      setStatus("Router address not specified in URL.");
+      return;
+    }
+    (async () => {
+      await startAggregator(routerAddress, aggregatorRef.current);
+    })();
+    const interval = setInterval(async () => {
+      let data = getAggregatedData(routerAddress, aggregatorRef.current);
+      // If no off-chain aggregated data is available, use fallback.
+      if (data.length === 0) {
+        data = await fetchFallbackPriceHistory(routerAddress);
+      }
+      setAggregatedData(data);
+      console.log("Aggregated OHLCV Data:", data);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [routerAddress]);
+
+  // Standard initialization for wallet, token info, etc.
+  useEffect(() => {
+    if (!routerAddress) {
+      setStatus("Router address not specified in URL.");
+      return;
+    }
+    initPage();
+  }, [routerAddress]);
+
+  async function initPage() {
+    if (!window.ethereum) {
+      setStatus("Please install MetaMask.");
+      return;
+    }
+    try {
+      const web3 = new Web3(window.ethereum);
+      const accounts = await web3.eth.requestAccounts();
+      if (accounts.length) setAccount(accounts[0]);
+
+      const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+      const tAddress = await routerContract.methods.token().call();
+      setTokenAddress(tAddress);
+
+      const tokenContract = new web3.eth.Contract(tokenABI, tAddress);
+      const [name, symbol, tokenDecimals] = await Promise.all([
+        tokenContract.methods.name().call(),
+        tokenContract.methods.symbol().call(),
+        tokenContract.methods.decimals().call(),
+      ]);
+      setTokenName(name);
+      setTokenSymbol(symbol);
+      setDecimals(Number(tokenDecimals));
+
+      await fetchPrice();
+      await fetchTrades();
+      await fetchChatMessages();
+      await fetchPriceHistory();
+    } catch (err) {
+      console.error("Initialization error:", err);
+      setStatus("Error initializing page. Check console.");
+    }
+  }
 
   async function fetchPrice() {
     try {
@@ -672,36 +805,34 @@ export default function RouterPage() {
       const rawPrice = await routerContract.methods.getCurrentBondingPrice().call();
       const priceInNative = web3.utils.fromWei(rawPrice, "ether");
       setPrice(priceInNative);
+      console.log("getCurrentBondingPrice:", priceInNative);
     } catch (err) {
       console.error("Error fetching price:", err);
     }
   }
 
-  // Convert raw priceHistory data from contract into the format: { time: 'YYYY-MM-DD', value: number }
   async function fetchPriceHistory() {
-	try {
-	  const web3 = new Web3(window.ethereum);
-	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-	  const history = await routerContract.methods.getPriceHistory().call();
-	  const historyArray = Array.isArray(history) ? history : Object.values(history);
-	  const formattedHistory = historyArray.map(item => {
-		if (item && typeof item === 'object') {
-		  return {
-			time: Number(item.timestamp) * 1000, // Convert to ms
-			value: Number(web3.utils.fromWei(item.price, "ether"))
-		  };
-		}
-		return null;
-	  }).filter(Boolean);
-	  
-	  setPriceHistory(formattedHistory);
-	  window.priceHistoryData = formattedHistory; // Expose for datafeed
-	} catch (err) {
-	  console.error("Error fetching price history:", err);
-	}
+    try {
+      const web3 = new Web3(window.ethereum);
+      const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+      const history = await routerContract.methods.getPriceHistory().call();
+      const historyArray = Array.isArray(history) ? history : Object.values(history);
+      const formattedHistory = historyArray.map(item => {
+        if (item && typeof item === "object") {
+          return {
+            time: Number(item.timestamp) * 1000,
+            value: Number(web3.utils.fromWei(item.price, "ether"))
+          };
+        }
+        return null;
+      }).filter(Boolean);
+      setPriceHistory(formattedHistory);
+      console.log("getPriceHistory:", formattedHistory);
+      window.priceHistoryData = formattedHistory;
+    } catch (err) {
+      console.error("Error fetching price history:", err);
+    }
   }
-  
-  
 
   async function fetchTrades() {
     try {
@@ -719,34 +850,22 @@ export default function RouterPage() {
     }
   }
 
-  // Updated handleBuy:
-  // If the user enters a single value, we use buyTokens (one input).
-  // If the input is comma-separated (e.g. "1,5,10"), we use batchBuy (two arrays).
   async function handleBuy() {
     if (!account) return setStatus("Connect your wallet first.");
     const sanitizedInput = buyEthAmount.replace(/\s/g, "");
-    if (!sanitizedInput || Number(sanitizedInput.replace(/,/g, '')) <= 0) {
+    if (!sanitizedInput || Number(sanitizedInput.replace(/,/g, "")) <= 0) {
       return setStatus("Enter a valid amount to spend.");
     }
-  
     setStatus("Buying tokens...");
     try {
       const web3 = new Web3(window.ethereum);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-      
-      // Use a safe minimum value. (We use "1" so that the contract check passes if tokens are minted.)
       const safeMin = "1";
-          
-        
-      
-      // Batch buy case
-      const amounts = buyEthAmount.split(',').map(s => s.trim()).filter(Boolean);
+      const amounts = buyEthAmount.split(",").map(s => s.trim()).filter(Boolean);
       if (amounts.length === 0) return setStatus("Enter valid amounts.");
-
       const nativeAmounts = [];
       const minTokensOuts = [];
       let totalValueBN = new BN("0");
-
       for (let amt of amounts) {
         if (Number(amt) <= 0) {
           return setStatus("Each amount must be greater than zero.");
@@ -754,121 +873,62 @@ export default function RouterPage() {
         const amtWei = web3.utils.toWei(amt, "ether");
         nativeAmounts.push(amtWei);
         totalValueBN = totalValueBN.add(new BN(amtWei));
-        
-        // For each individual amount, check if tokens would be minted.
         const estTokens = await routerContract.methods.calculateTokensToMint(amtWei).call();
         if (new BN(estTokens).isZero()) {
           return setStatus(`Buy value of ${amt} ETH is too low – no tokens minted. Increase this value.`);
         }
         minTokensOuts.push(safeMin);
       }
-      
       if (totalValueBN.isZero()) {
         return setStatus("Total native amount cannot be zero.");
       }
-      
       await routerContract.methods.batchBuy(nativeAmounts, minTokensOuts).send({
         from: account,
         value: totalValueBN.toString()
       });
-    
-    setStatus("Buy transaction confirmed.");
-    fetchPrice();
-    fetchTrades();
-    fetchPriceHistory();
-  } catch (err) {
-    console.error("Buy error:", err);
-    setStatus(err.message);
+      setStatus("Buy transaction confirmed.");
+      fetchPrice();
+      fetchTrades();
+      fetchPriceHistory();
+    } catch (err) {
+      console.error("Buy error:", err);
+      setStatus(err.message);
+    }
   }
-}
-  
-  
 
-async function handleSell() {
-	if (!account)
-	  return setStatus("Connect your wallet first.");
-	if (!sellTokenAmount || Number(sellTokenAmount.replace(/,/g, '')) <= 0)
-	  return setStatus("Enter a valid token amount to sell.");
-	setStatus("Selling tokens...");
-	try {
-	  const web3 = new Web3(window.ethereum);
-	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-	  
-	  // Helper: Convert an individual token amount string to its BN representation.
-	  const convertToTokenAmount = (amountStr) => {
-		// amountStr is in whole tokens (e.g., "10")
-		return new BN(10).pow(new BN(decimals)).mul(new BN(amountStr));
-	  };
-  
-	  if (sellTokenAmount.includes(',')) {
-		// Batch sell mode: multiple comma separated values.
-		const amounts = sellTokenAmount.split(',').map(s => s.trim()).filter(Boolean);
-		if (amounts.length === 0)
-		  return setStatus("Enter valid token amounts to sell.");
-  
-		const tokenAmounts = amounts.map(amt => convertToTokenAmount(amt).toString());
-  
-		await routerContract.methods.batchSell(tokenAmounts).send({ from: account });
-	  } else {
-		// Single sell mode.
-		const tokenAmount = convertToTokenAmount(sellTokenAmount);
-		await routerContract.methods.batchSell([tokenAmount.toString()]).send({ from: account });
-	  }
-	  
-	  setStatus("Sell transaction confirmed.");
-	  fetchPrice();
-	  fetchTrades();
-	  fetchPriceHistory();
-	} catch (err) {
-	  console.error("Sell error:", err);
-	  setStatus(err.message);
-	}
-  }
   async function handleSell() {
-	if (!account) return setStatus("Connect your wallet first.");
-	if (!sellTokenAmount && !sellPercentage)
-	  return setStatus("Enter a valid token amount or percentage to sell.");
-	  
-	setStatus("Selling tokens...");
-  
-	try {
-	  const web3 = new Web3(window.ethereum);
-	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-	  const tokenContract = new web3.eth.Contract(tokenABI, tokenAddress);
-  
-	  // Helper: Convert an individual token amount string to its BN representation.
-	  const convertToTokenAmount = (amountStr) => {
-		return new BN(10).pow(new BN(decimals)).mul(new BN(amountStr));
-	  };
-  
-	  let tokenAmount;
-  
-	  if (sellPercentage) {
-		// Fetch user's total balance
-		const balance = await tokenContract.methods.balanceOf(account).call();
-		const percentageDecimal = new BN(sellPercentage).mul(new BN(balance)).div(new BN(100));
-		tokenAmount = percentageDecimal;
-	  } else {
-		// Single token amount (fixed value)
-		tokenAmount = convertToTokenAmount(sellTokenAmount);
-	  }
-  
-	  await routerContract.methods.batchSell([tokenAmount.toString()]).send({ from: account });
-  
-	  setStatus("Sell transaction confirmed.");
-	  fetchPrice();
-	  fetchTrades();
-	  fetchPriceHistory();
-	} catch (err) {
-	  console.error("Sell error:", err);
-	  setStatus(err.message);
-	}
+    if (!account) return setStatus("Connect your wallet first.");
+    if (!sellTokenAmount && !sellPercentage)
+      return setStatus("Enter a valid token amount or percentage to sell.");
+    setStatus("Selling tokens...");
+    try {
+      const web3 = new Web3(window.ethereum);
+      const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+      const tokenContract = new web3.eth.Contract(tokenABI, tokenAddress);
+      const convertToTokenAmount = (amountStr) => {
+        return new BN(10).pow(new BN(decimals)).mul(new BN(amountStr));
+      };
+      let tokenAmount;
+      if (sellPercentage) {
+        const balance = await tokenContract.methods.balanceOf(account).call();
+        const percentageDecimal = new BN(sellPercentage).mul(new BN(balance)).div(new BN(100));
+        tokenAmount = percentageDecimal;
+      } else {
+        tokenAmount = convertToTokenAmount(sellTokenAmount);
+      }
+      await routerContract.methods.batchSell([tokenAmount.toString()]).send({ from: account });
+      setStatus("Sell transaction confirmed.");
+      fetchPrice();
+      fetchTrades();
+      fetchPriceHistory();
+    } catch (err) {
+      console.error("Sell error:", err);
+      setStatus(err.message);
+    }
   }
-  
 
   async function handlePostChat() {
-    if (!account)
-      return setStatus("Connect your wallet to post a message.");
+    if (!account) return setStatus("Connect your wallet to post a message.");
     if (!chatInput.trim()) return;
     setStatus("Posting chat message...");
     try {
@@ -884,11 +944,27 @@ async function handleSell() {
     }
   }
 
-  const sampleData = [
-	{ date: '2023-10-01T00:00:00Z', price: 100 },
-	{ date: '2023-10-01T00:01:00Z', price: 101 },
-	{ date: '2023-10-01T00:02:00Z', price: 102 },
-	// Add more data points for each minute
+  // ApexCharts options and series for candlestick chart.
+  const chartOptions = {
+    chart: {
+      type: "candlestick",
+      height: 400,
+      animations: { enabled: true }
+    },
+    title: { text: `${tokenSymbol || "Token"} Price History`, align: "left" },
+    xaxis: { type: "datetime" },
+    yaxis: { tooltip: { enabled: true } },
+    tooltip: { x: { format: "dd MMM HH:mm" } }
+  };
+
+  const chartSeries = [
+    {
+      name: "Price",
+      data: aggregatedData.map((bucket) => ({
+        x: new Date(bucket.startTime * 1000),
+        y: [bucket.open, bucket.high, bucket.low, bucket.close]
+      }))
+    }
   ];
 
   return (
@@ -911,78 +987,71 @@ async function handleSell() {
         </div>
       </div>
 
-            {/* Main Content */}
-			<div className="router-main-content">
+      {/* Main Content */}
+      <div className="router-main-content">
         {/* Chart Column */}
         <div className="chart-column" style={{ width: "100%", marginBottom: "20px" }}>
-		<div
-			className="chart-box"
-			style={{
-				padding: "20px",
-				backgroundColor: "#fff",
-				borderRadius: "8px",
-				boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
-				margin: "0 auto",
-				maxWidth: "1200px", // Increased width
-				width: "100%", // Ensure the width is set to 100%
-			}}
-			>
-			<div
-				className="chart-header"
-				style={{
-				display: "flex",
-				justifyContent: "space-between",
-				alignItems: "center",
-				marginBottom: "10px",
-				}}
-			>
-				<h2 style={{ margin: 0, fontSize: "1.5rem" }}>
-				{tokenSymbol || "Token"} Price History
-				</h2>
-				<div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
-				{["1m", "5m", "15m", "1h", "1d"].map((label) => (
-					<button
-					key={label}
-					style={{
-						padding: "5px 10px",
-						fontSize: "0.9rem",
-						border: "none",
-						backgroundColor: "#f0f0f0",
-						borderRadius: "4px",
-						cursor: "pointer",
-					}}
-					>
-					{label}
-					</button>
-				))}
-				</div>
-			</div>
-			{priceHistory.length ? (
-				<TradingViewChart symbol={tokenSymbol} data={sampleData}  />
-			) : (
-				<div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
-				No trades yet. Make a trade to see the chart update.
-				</div>
-			)}
-			</div>
+          <div
+            className="chart-box"
+            style={{
+              padding: "20px",
+              backgroundColor: "#fff",
+              borderRadius: "8px",
+              boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
+              margin: "0 auto",
+              maxWidth: "1200px",
+              width: "100%",
+            }}
+          >
+            <div
+              className="chart-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "10px",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
+                {tokenSymbol || "Token"} Price History
+              </h2>
+              <div className="timeframe-buttons" style={{ display: "flex", gap: "8px" }}>
+                {["1m", "5m", "15m", "1h", "1d"].map((label) => (
+                  <button
+                    key={label}
+                    style={{
+                      padding: "5px 10px",
+                      fontSize: "0.9rem",
+                      border: "none",
+                      backgroundColor: "#f0f0f0",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ChartErrorBoundary>
+              {aggregatedData.length ? (
+                <ApexChart options={chartOptions} series={chartSeries} type="candlestick" height={400} />
+              ) : (
+                <div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
+                  No trades yet. Make a trade to see the chart update.
+                </div>
+              )}
+            </ChartErrorBoundary>
+          </div>
         </div>
-
-
-
 
         {/* Trade Panel */}
         <div className="trade-panel">
           <div className="trade-tabs">
-            <button 
-              className={isBuy ? "tab-btn active" : "tab-btn"} 
-              onClick={() => setIsBuy(true)}
-            >
+            <button className={isBuy ? "tab-btn active" : "tab-btn"} onClick={() => setIsBuy(true)}>
               buy
             </button>
-            <button 
-              className={!isBuy ? "tab-btn active-sell" : "tab-btn"} 
-              onClick={() => setIsBuy(false)}
-            >
+            <button className={!isBuy ? "tab-btn active-sell" : "tab-btn"} onClick={() => setIsBuy(false)}>
               sell
             </button>
           </div>
@@ -990,10 +1059,10 @@ async function handleSell() {
           {isBuy ? (
             <div className="buy-panel">
               <div className="input-row">
-                <input 
-                  type="text" 
-                  placeholder="0.00 (or comma separated for batch buy)" 
-                  value={buyEthAmount} 
+                <input
+                  type="text"
+                  placeholder="0.00 (or comma separated for batch buy)"
+                  value={buyEthAmount}
                   onChange={(e) => setBuyEthAmount(e.target.value)}
                 />
                 <span className="token-label">ETN</span>
@@ -1009,37 +1078,36 @@ async function handleSell() {
               </button>
             </div>
           ) : (
-			<div className="sell-panel">
-			<div className="input-row">
-			  <input
-				type="number"
-				placeholder="0.00"
-				value={sellTokenAmount}
-				onChange={(e) => setSellTokenAmount(e.target.value)}
-			  />
-			  <span className="token-label">{tokenSymbol}</span>
-			</div>
-			{/* New input for percentage */}
-			<div className="input-row">
-			  <input
-				type="text"
-				placeholder="Enter percentage to sell (e.g. 50)"
-				value={sellPercentage}
-				onChange={(e) => setSellPercentage(e.target.value)}
-			  />
-			  <span className="token-label">%</span>
-			</div>
-			<div className="quick-fill">
-			  <button onClick={() => { setSellTokenAmount("0"); setSellPercentage(""); }}>reset</button>
-			  <button onClick={() => setSellPercentage("25")}>25%</button>
-			  <button onClick={() => setSellPercentage("50")}>50%</button>
-			  <button onClick={() => setSellPercentage("75")}>75%</button>
-			  <button onClick={() => setSellPercentage("100")}>100%</button>
-			</div>
-			<button className="place-trade sell-trade" onClick={handleSell}>
-			  place trade
-			</button>
-		  </div>
+            <div className="sell-panel">
+              <div className="input-row">
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={sellTokenAmount}
+                  onChange={(e) => setSellTokenAmount(e.target.value)}
+                />
+                <span className="token-label">{tokenSymbol}</span>
+              </div>
+              <div className="input-row">
+                <input
+                  type="text"
+                  placeholder="Enter percentage to sell (e.g. 50)"
+                  value={sellPercentage}
+                  onChange={(e) => setSellPercentage(e.target.value)}
+                />
+                <span className="token-label">%</span>
+              </div>
+              <div className="quick-fill">
+                <button onClick={() => { setSellTokenAmount("0"); setSellPercentage(""); }}>reset</button>
+                <button onClick={() => setSellPercentage("25")}>25%</button>
+                <button onClick={() => setSellPercentage("50")}>50%</button>
+                <button onClick={() => setSellPercentage("75")}>75%</button>
+                <button onClick={() => setSellPercentage("100")}>100%</button>
+              </div>
+              <button className="place-trade sell-trade" onClick={handleSell}>
+                place trade
+              </button>
+            </div>
           )}
           {status && (
             <div className="status-box">
@@ -1066,10 +1134,10 @@ async function handleSell() {
           ))}
         </div>
         <div className="chat-input-box">
-          <input 
-            type="text" 
-            placeholder="Your message..." 
-            value={chatInput} 
+          <input
+            type="text"
+            placeholder="Your message..."
+            value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
           />
           <button onClick={handlePostChat}>Send</button>
@@ -1077,4 +1145,17 @@ async function handleSell() {
       </div>
     </div>
   );
+}
+
+
+
+// Helper for "time ago" formatting.
+function timeSince(timestamp) {
+  if (!timestamp) return "";
+  const now = Date.now();
+  const secondsPast = Math.floor((now - timestamp) / 1000);
+  if (secondsPast < 60) return `${secondsPast}s`;
+  if (secondsPast < 3600) return `${Math.floor(secondsPast / 60)}m`;
+  if (secondsPast < 86400) return `${Math.floor(secondsPast / 3600)}h`;
+  return `${Math.floor(secondsPast / 86400)}d`;
 }
