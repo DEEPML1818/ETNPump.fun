@@ -11,6 +11,7 @@ import { NetworkContext } from "../../NetworkProvider";
 import { ethers, formatUnits, parseUnits } from "ethers";
 
 // Dynamically import ApexCharts to avoid SSR issues.
+const LightweightChart = dynamic(() => import("./LightweightChart"), { ssr: false });
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 // ----- Provider Helper Functions ----- //
@@ -1093,7 +1094,7 @@ export default function RouterPage() {
             </div>
             <ChartErrorBoundary>
               {aggregatedData.length ? (
-                <ApexChart options={chartOptions} series={chartSeries} type="candlestick" height={400} />
+                <ApexChart options={chartOptions} series={chartSeries} type="line" height={400} />
               ) : (
                 <div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
                   No trades yet. Make a trade to see the chart update.

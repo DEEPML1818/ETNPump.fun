@@ -11,6 +11,8 @@
   "dependencies": {
     "@nivo/line": "^0.88.0",
     "@tailwindcss/postcss": "^4.0.9",
+    "@tsparticles/engine": "^3.8.1",
+    "@tsparticles/slim": "^3.8.1",
     "@walletconnect/web3-provider": "^1.8.0",
     "apexcharts": "^4.5.0",
     "bn.js": "^5.2.1",
@@ -25,6 +27,10 @@
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",
     "react-dom": "^19.0.0",
+    "react-tsparticles": "^2.12.2",
+    "tsparticles": "^3.8.1",
+    "tsparticles-plugin-polygon-mask": "^2.12.0",
+    "tsparticles-slim": "^2.12.0",
     "web3": "^4.16.0",
     "web3modal": "^1.9.12"
   },

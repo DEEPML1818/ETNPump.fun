@@ -66,6 +66,142 @@ const routerTradeEventABI = {
   "type": "event"
 };
 
+// Framer Motion variants used by both components.
+const pageVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.5 } },
+  exit: { opacity: 0, transition: { duration: 0.3 } }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, delay: i * 0.1 }
+  })
+};
+
+const buttonVariants = {
+  hover: { scale: 1.05 },
+  tap: { scale: 0.95 }
+};
+
+// --- TokenCard Component ---
+// This component manages its own click state to display a full-screen overlay modal.
+function TokenCard({ token, idx }) {
+  const [showModal, setShowModal] = useState(false);
+
+  const displayImage =
+    token.imageURL && token.imageURL.trim() !== ""
+      ? token.imageURL
+      : "https://via.placeholder.com/64?text=No+Img";
+
+  return (
+    <>
+      <motion.div
+        className="token-card"
+        custom={idx}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        variants={cardVariants}
+        whileHover={{ scale: 1.1 }}
+        style={{ position: 'relative', cursor: 'pointer' }}
+        onClick={() => setShowModal(true)}
+      >
+        <img src={displayImage} alt="token" className="token-img" />
+        <div className="token-info">
+          <div className="token-name">
+            {token.name} ({token.symbol})
+          </div>
+          <div className="token-desc">{token.description}</div>
+          <div className="token-meta">Created {timeSince(token.createdAt)} ago</div>
+        </div>
+        <div className="token-actions">
+          <Link href={`/router/${token.routerAddress}`} passHref>
+            <motion.button
+              className="trade-btn"
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
+              onClick={(e) => e.stopPropagation()} // Prevent triggering modal
+            >
+              Trade
+            </motion.button>
+          </Link>
+        </div>
+      </motion.div>
+
+      {/* Full-Screen Modal Overlay */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000
+            }}
+            onClick={() => setShowModal(false)} // Close when clicking the overlay
+          >
+            <motion.div
+              className="modal-content"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                background: '#fff',
+                padding: '2rem',
+                borderRadius: '8px',
+                maxWidth: '500px',
+                width: '90%',
+                color: '#000'
+              }}
+              onClick={(e) => e.stopPropagation()} // Prevent modal close on content click
+            >
+              <p><strong>Description:</strong> {token.description}</p>
+              <p><strong>Price:</strong> [Insert Price]</p>
+              <p><strong>Bought Recently:</strong> {token.bought}</p>
+              <p>
+                <strong>Social:</strong>
+                {token.telegram && (
+                  <a href={token.telegram} target="_blank" rel="noopener noreferrer" style={{ color: '#00d18f', marginLeft: 5 }}>
+                    Telegram
+                  </a>
+                )}
+                {token.xProfile && (
+                  <a href={token.xProfile} target="_blank" rel="noopener noreferrer" style={{ color: '#00d18f', marginLeft: 5 }}>
+                    XProfile
+                  </a>
+                )}
+                {token.website && (
+                  <a href={token.website} target="_blank" rel="noopener noreferrer" style={{ color: '#00d18f', marginLeft: 5 }}>
+                    Website
+                  </a>
+                )}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// --- DashboardPage Component ---
 export default function DashboardPage() {
   const { selectedNetwork } = useContext(NetworkContext);
   const [account, setAccount] = useState("");
@@ -76,6 +212,10 @@ export default function DashboardPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // New sorter state
+  // Defaulting to "featured" to match your screenshot
+  const [sortOption, setSortOption] = useState("featured");
+
   const factoryAddress = selectedNetwork.factoryAddress;
 
   useEffect(() => {
@@ -85,13 +225,18 @@ export default function DashboardPage() {
       try {
         const accounts = await web3.eth.requestAccounts().catch(() => []);
         if (accounts.length > 0) setAccount(accounts[0]);
+
         const factory = new web3.eth.Contract(factoryABI, factoryAddress);
         const creationEvents = await factory.getPastEvents("TokenAndRouterCreated", {
           fromBlock: 0,
           toBlock: "latest"
         });
+
         const tokenData = creationEvents.map(ev => {
-          const { creator, tokenAddress, routerAddress, name, symbol, initialSupply, timestamp, description, telegram, xProfile, website, imageURL } = ev.returnValues;
+          const {
+            creator, tokenAddress, routerAddress, name, symbol,
+            initialSupply, timestamp, description, telegram, xProfile, website, imageURL
+          } = ev.returnValues;
           return { 
             creator, 
             tokenAddress, 
@@ -107,6 +252,8 @@ export default function DashboardPage() {
             imageURL 
           };
         });
+
+        // Enrich tokens with total tokens bought from Trade events.
         const enrichedPromises = tokenData.map(async (item) => {
           let boughtTotal = 0;
           try {
@@ -136,6 +283,7 @@ export default function DashboardPage() {
           }
           return { ...item, bought: boughtTotal };
         });
+
         const enriched = await Promise.all(enrichedPromises);
         setTokens(enriched);
         setStatus(`Found ${enriched.length} tokens.`);
@@ -148,38 +296,62 @@ export default function DashboardPage() {
     init();
   }, [factoryAddress, selectedNetwork]);
 
-  const filteredTokens = tokens.filter(token => {
+  // Filter tokens by search and filter criteria.
+  let filteredTokens = tokens.filter(token => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
       token.name.toLowerCase().includes(term) ||
       token.symbol.toLowerCase().includes(term) ||
       token.description.toLowerCase().includes(term);
-    const matchesFilter = activeFilter ? token.description.toLowerCase().includes(activeFilter) : true;
+
+    const matchesFilter = activeFilter
+      ? token.description.toLowerCase().includes(activeFilter)
+      : true;
+
     return matchesSearch && matchesFilter;
   });
+
+  // Sort tokens based on the selected sort option.
+  switch (sortOption) {
+    case 'featured':
+      // "Featured" might be your own custom logic or just default (no sorting).
+      // Currently, we do nothing here.
+      break;
+
+    case 'lastTrade':
+      // Example: Sort by the "last trade time" if you store it, or by 'bought' as a proxy.
+      // This is a placeholder—replace with your own logic.
+      filteredTokens.sort((a, b) => b.bought - a.bought);
+      break;
+
+    case 'creationTime':
+      // Sort by creation time (newest first).
+      filteredTokens.sort((a, b) => b.createdAt - a.createdAt);
+      break;
+
+    case 'lastReply':
+      // Placeholder: if you store a "lastReply" timestamp, sort by that.
+      // For now, we can just reverse the current array as a placeholder.
+      filteredTokens.reverse();
+      break;
+
+    case 'marketCap':
+      // Placeholder: if you have a "marketCap" field, you can do something like:
+      // filteredTokens.sort((a, b) => b.marketCap - a.marketCap);
+      // For now, do nothing or a sample logic:
+      filteredTokens.sort((a, b) => b.initialSupply - a.initialSupply);
+      break;
+
+    default:
+      // No sort or fallback logic
+      break;
+  }
 
   const handleSearch = (e) => setSearchTerm(e.target.value);
   const selectFilter = (filter) => setActiveFilter(filter === activeFilter ? "" : filter);
 
-  // Framer Motion variants for overall page and elements.
-  const pageVariants = {
-    initial: { opacity: 0 },
-    animate: { opacity: 1, transition: { duration: 0.5 } },
-    exit: { opacity: 0, transition: { duration: 0.3 } }
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.3, delay: i * 0.1 }
-    })
-  };
-
-  const buttonVariants = {
-    hover: { scale: 1.05 },
-    tap: { scale: 0.95 }
+  const handleSortChange = (e) => {
+    setSortOption(e.target.value);
   };
 
   return (
@@ -192,19 +364,35 @@ export default function DashboardPage() {
     >
       {/* Animated Ticker */}
       <motion.div className="ticker-container" whileHover={{ scale: 1.02 }}>
-        <motion.div className="ticker-text" animate={{ x: ['100%', '-100%'] }} transition={{ duration: 20, ease: "linear", repeat: Infinity }}>
+        <motion.div
+          className="ticker-text"
+          animate={{ x: ['100%', '-100%'] }}
+          transition={{ duration: 20, ease: "linear", repeat: Infinity }}
+        >
           Live feed: new tokens & trades will appear here...
         </motion.div>
       </motion.div>
+
       {/* Dashboard Header */}
-      <motion.div className="dashboard-header" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <motion.div
+        className="dashboard-header"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <h1>[start a new coin]</h1>
         <p className="subtext">
           {account ? `Connected as ${account}` : 'Not connected'}
         </p>
       </motion.div>
+
       {/* Top Actions */}
-      <motion.div className="top-actions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      <motion.div
+        className="top-actions"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         <Link href="/create-token" passHref>
           <motion.button
             className="start-coin-btn"
@@ -216,11 +404,33 @@ export default function DashboardPage() {
           </motion.button>
         </Link>
         <motion.div className="search-box" variants={buttonVariants}>
-          <input type="text" placeholder="search for token" value={searchTerm} onChange={handleSearch} />
+          <input
+            type="text"
+            placeholder="search for token"
+            value={searchTerm}
+            onChange={handleSearch}
+          />
+        </motion.div>
+
+        {/* Sorter Dropdown */}
+        <motion.div className="sorter" style={{ marginLeft: '1rem' }}>
+          <select value={sortOption} onChange={handleSortChange}>
+            <option value="featured">sort: featured 🔥</option>
+            <option value="lastTrade">sort: last trade</option>
+            <option value="creationTime">sort: creation time</option>
+            <option value="lastReply">sort: last reply</option>
+            <option value="marketCap">sort: market cap</option>
+          </select>
         </motion.div>
       </motion.div>
+
       {/* Filter Buttons */}
-      <motion.div className="filter-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      <motion.div
+        className="filter-row"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         {filters.map((f, idx) => (
           <motion.button
             key={idx}
@@ -235,9 +445,24 @@ export default function DashboardPage() {
           </motion.button>
         ))}
       </motion.div>
-      {status && <motion.p style={{ textAlign: 'center', marginBottom: '1rem' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{status}</motion.p>}
+
+      {status && (
+        <motion.p
+          style={{ textAlign: 'center', marginBottom: '1rem' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          {status}
+        </motion.p>
+      )}
+
       {/* Token Feed */}
-      <motion.div className="token-feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      <motion.div
+        className="token-feed"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         <AnimatePresence>
           {loading ? (
             Array.from({ length: 6 }).map((_, idx) => (
@@ -250,53 +475,47 @@ export default function DashboardPage() {
                 exit="hidden"
                 variants={cardVariants}
               >
-                <div className="skeleton-img" style={{ width: 48, height: 48, borderRadius: '50%', background: '#444', marginBottom: '0.5rem' }}></div>
-                <div className="skeleton-info" style={{ width: '80%', height: 10, background: '#444', marginBottom: '0.3rem' }}></div>
-                <div className="skeleton-info" style={{ width: '60%', height: 8, background: '#444' }}></div>
+                <div
+                  className="skeleton-img"
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: '#444',
+                    marginBottom: '0.5rem'
+                  }}
+                ></div>
+                <div
+                  className="skeleton-info"
+                  style={{
+                    width: '80%',
+                    height: 10,
+                    background: '#444',
+                    marginBottom: '0.3rem'
+                  }}
+                ></div>
+                <div
+                  className="skeleton-info"
+                  style={{
+                    width: '60%',
+                    height: 8,
+                    background: '#444'
+                  }}
+                ></div>
               </motion.div>
             ))
           ) : (
-            filteredTokens.map((token, idx) => {
-              const displayImage = token.imageURL && token.imageURL.trim() !== ""
-                ? token.imageURL
-                : "https://via.placeholder.com/64?text=No+Img";
-              return (
-                <motion.div
-                  className="token-card"
-                  key={idx}
-                  custom={idx}
-                  initial="hidden"
-                  animate="visible"
-                  exit="hidden"
-                  variants={cardVariants}
-                >
-                  <img src={displayImage} alt="token" className="token-img" />
-                  <div className="token-info">
-                    <div className="token-name">
-                      {token.name} ({token.symbol})
-                    </div>
-                    <div className="token-desc">{token.description}</div>
-                    <div className="token-meta">Created {timeSince(token.createdAt)} ago</div>
-                  </div>
-                  <div className="token-actions">
-                    <Link href={`/router/${token.routerAddress}`} passHref>
-                      <motion.button
-                        className="trade-btn"
-                        variants={buttonVariants}
-                        whileHover="hover"
-                        whileTap="tap"
-                      >
-                        Trade
-                      </motion.button>
-                    </Link>
-                  </div>
-                </motion.div>
-              );
-            })
+            filteredTokens.map((token, idx) => (
+              <TokenCard key={idx} token={token} idx={idx} />
+            ))
           )}
         </AnimatePresence>
         {!loading && filteredTokens.length === 0 && (
-          <motion.p style={{ textAlign: 'center', color: '#ccc' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.p
+            style={{ textAlign: 'center', color: '#ccc' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             No tokens match your search/filter.
           </motion.p>
         )}

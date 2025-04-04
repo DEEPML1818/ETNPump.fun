@@ -206,3 +206,35 @@
   background-color: #00b67c;
   transform: translateY(-2px);
 }
+
+/* Example CSS for a custom dropdown */
+.sorter {
+  position: relative;
+  display: inline-block;
+  margin-left: 1rem;
+}
+
+.sorter select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #00d18f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease;
+}
+
+.sorter select:hover,
+.sorter select:focus {
+  background-color: #00b27c;
+}
+
+.sorter option {
+  background-color: #0f0f0f;
+  color: #fff;
+}
