@@ -1,14 +1,71 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "next/navigation";
 import Web3 from "web3";
 import BN from "bn.js";
 import dynamic from "next/dynamic";
 import "../../pumpfun-router.css";
+import { NetworkContext } from "../../NetworkProvider";
+// Import ethers helpers for v6:
+import { ethers, formatUnits, parseUnits } from "ethers";
 
 // Dynamically import ApexCharts to avoid SSR issues.
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
+
+// ----- Provider Helper Functions ----- //
+function getWeb3Provider(selectedNetwork) {
+  // If a wallet is connected, use its provider.
+  if (window.ethereum && window.ethereum.selectedAddress) {
+    console.log("Using wallet provider:", window.ethereum);
+    return new Web3(window.ethereum);
+  }
+  // Otherwise, create a Web3 instance using the RPC URL from selectedNetwork.
+  return new Web3(new Web3.providers.HttpProvider(selectedNetwork.rpc));
+}
+
+async function getEthersProvider(selectedNetwork) {
+  const FALLBACK_RPC = selectedNetwork.rpc;
+  if (window.ethereum && window.ethereum.selectedAddress) {
+    console.log("Using wallet ethers provider:", window.ethereum);
+    return new ethers.providers.Web3Provider(window.ethereum);
+  }
+  console.log("Using fallback ethers provider:", FALLBACK_RPC);
+  return new ethers.providers.JsonRpcProvider(FALLBACK_RPC);
+}
+
+
+// ----- Helper Functions for Providers ----- //
+
+/**
+ * Returns a Web3 provider instance:
+ * - If the wallet is connected (window.ethereum.selectedAddress exists), use that.
+ * - Otherwise, use a fallback RPC URL.
+ */
+/**
+function getWeb3Provider() {
+  const FALLBACK_RPC = "https://rpc.ankr.com/electroneum_testnet";
+  if (window.ethereum && window.ethereum.selectedAddress) {
+    return new Web3(window.ethereum);
+  }
+  return new Web3(FALLBACK_RPC);
+}
+*/
+/**
+ * Returns an ethers.js provider:
+ * - If the wallet is connected, use window.ethereum.
+ * - Otherwise, use the fallback RPC URL.
+ */
+/**
+async function getEthersProvider() {
+  const { ethers } = await import("ethers");
+  const FALLBACK_RPC = "https://rpc.ankr.com/electroneum_testnet";
+  if (window.ethereum && window.ethereum.selectedAddress) {
+    return new ethers.providers.Web3Provider(window.ethereum);
+  }
+  return new ethers.providers.JsonRpcProvider(FALLBACK_RPC);
+}
+*/
 
 // --- Router Contract ABI (as provided) ---
 const routerABI = [
@@ -584,22 +641,24 @@ const tokenABI = [
   }
 ];
 
+// ----- Off-Chain Aggregator Logic (for Router Page) ----- //
 
+// We'll bucket data every 60 seconds.
+// ----- Aggregator Logic ----- //
+// We bucket events in 60-second intervals.
+// We'll bucket data in 60-second intervals.
 // Bucket interval in seconds.
-const BUCKET_INTERVAL = 60; // 1-minute intervals
-
-// Define bucket interval (in seconds)
+const BUCKET_INTERVAL = 60;
 const AGGREGATOR_INTERVAL = BUCKET_INTERVAL;
 
-async function startAggregator(routerAddress, aggregatorBuckets) {
+// Listen for events and bucket the data.
+async function startAggregator(routerAddress, aggregatorBuckets, selectedNetwork) {
   if (!routerAddress) return;
-  if (aggregatorBuckets[routerAddress]) return; // already started
+  if (aggregatorBuckets[routerAddress]) return; // Already started
 
   aggregatorBuckets[routerAddress] = {};
 
-  // Import ethers asynchronously
-  const { ethers } = await import("ethers");
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const provider = await getEthersProvider(selectedNetwork);
   const contract = new ethers.Contract(routerAddress, routerABI, provider);
 
   // Listen for TradeExecuted events.
@@ -654,36 +713,35 @@ function getAggregatedData(routerAddress, aggregatorBuckets) {
   return bucketArray;
 }
 
-// Fallback: Fetch getPriceHistory from contract and convert it to OHLCV data.
-async function fetchFallbackPriceHistory(routerAddress) {
-	try {
-	  const web3 = new Web3(window.ethereum);
-	  const routerContract = new web3.eth.Contract(routerABI, routerAddress);
-	  const history = await routerContract.methods.getPriceHistory().call();
-	  const historyArray = Array.isArray(history) ? history : Object.values(history);
-	  const fallbackData = historyArray.map((item, index) => {
-		// Attempt to get timestamp and price from either named properties or indexes.
-		const ts = item.timestamp || item[0];
-		const pr = item.price || item[1];
-		if (!ts || !pr) return null;
-		const time = Number(ts) * 1000; // Convert seconds to ms.
-		const p = parseFloat(web3.utils.fromWei(pr, "ether"));
-		return {
-		  startTime: Math.floor(time / 1000), // store bucket start time in seconds
-		  open: p,
-		  high: p,
-		  low: p,
-		  close: p,
-		  volume: 0,
-		};
-	  }).filter(Boolean);
-	  console.log("Fallback getPriceHistory:", fallbackData);
-	  return fallbackData;
-	} catch (error) {
-	  console.error("Fallback getPriceHistory error:", error);
-	  return [];
-	}
+// Fallback: Fetch getPriceHistory from contract.
+async function fetchFallbackPriceHistory(routerAddress, selectedNetwork) {
+  try {
+    const web3 = getWeb3Provider(selectedNetwork);
+    const routerContract = new web3.eth.Contract(routerABI, routerAddress);
+    const history = await routerContract.methods.getPriceHistory().call();
+    const historyArray = Array.isArray(history) ? history : Object.values(history);
+    const fallbackData = historyArray.map((item) => {
+      const ts = item.timestamp || item[0];
+      const pr = item.price || item[1];
+      if (!ts || !pr) return null;
+      const time = Number(ts) * 1000;
+      const p = parseFloat(web3.utils.fromWei(pr, "ether"));
+      return {
+        startTime: Math.floor(time / 1000),
+        open: p,
+        high: p,
+        low: p,
+        close: p,
+        volume: 0
+      };
+    }).filter(Boolean);
+    console.log("Fallback getPriceHistory:", fallbackData);
+    return fallbackData;
+  } catch (error) {
+    console.error("Fallback getPriceHistory error:", error);
+    return [];
   }
+}
 
 // ----- Error Boundary for ApexChart -----
 import React from "react";
@@ -707,10 +765,10 @@ class ChartErrorBoundary extends React.Component {
 }
 
 // ----- Router Page Component -----
-
 export default function RouterPage() {
   const params = useParams();
   const routerAddress = params.router || params.token;
+  const { selectedNetwork } = useContext(NetworkContext);
 
   // Basic state hooks.
   const [account, setAccount] = useState("");
@@ -741,19 +799,19 @@ export default function RouterPage() {
       return;
     }
     (async () => {
-      await startAggregator(routerAddress, aggregatorRef.current);
+      await startAggregator(routerAddress, aggregatorRef.current, selectedNetwork);
     })();
     const interval = setInterval(async () => {
       let data = getAggregatedData(routerAddress, aggregatorRef.current);
-      // If no off-chain aggregated data is available, use fallback.
+      // If no off-chain data, use fallback.
       if (data.length === 0) {
-        data = await fetchFallbackPriceHistory(routerAddress);
+        data = await fetchFallbackPriceHistory(routerAddress, selectedNetwork);
       }
       setAggregatedData(data);
       console.log("Aggregated OHLCV Data:", data);
     }, 5000);
     return () => clearInterval(interval);
-  }, [routerAddress]);
+  }, [routerAddress, selectedNetwork]);
 
   // Standard initialization for wallet, token info, etc.
   useEffect(() => {
@@ -770,7 +828,7 @@ export default function RouterPage() {
       return;
     }
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const accounts = await web3.eth.requestAccounts();
       if (accounts.length) setAccount(accounts[0]);
 
@@ -782,7 +840,7 @@ export default function RouterPage() {
       const [name, symbol, tokenDecimals] = await Promise.all([
         tokenContract.methods.name().call(),
         tokenContract.methods.symbol().call(),
-        tokenContract.methods.decimals().call(),
+        tokenContract.methods.decimals().call()
       ]);
       setTokenName(name);
       setTokenSymbol(symbol);
@@ -800,7 +858,7 @@ export default function RouterPage() {
 
   async function fetchPrice() {
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
       const rawPrice = await routerContract.methods.getCurrentBondingPrice().call();
       const priceInNative = web3.utils.fromWei(rawPrice, "ether");
@@ -813,7 +871,7 @@ export default function RouterPage() {
 
   async function fetchPriceHistory() {
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
       const history = await routerContract.methods.getPriceHistory().call();
       const historyArray = Array.isArray(history) ? history : Object.values(history);
@@ -858,7 +916,7 @@ export default function RouterPage() {
     }
     setStatus("Buying tokens...");
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
       const safeMin = "1";
       const amounts = buyEthAmount.split(",").map(s => s.trim()).filter(Boolean);
@@ -902,7 +960,7 @@ export default function RouterPage() {
       return setStatus("Enter a valid token amount or percentage to sell.");
     setStatus("Selling tokens...");
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
       const tokenContract = new web3.eth.Contract(tokenABI, tokenAddress);
       const convertToTokenAmount = (amountStr) => {
@@ -932,7 +990,7 @@ export default function RouterPage() {
     if (!chatInput.trim()) return;
     setStatus("Posting chat message...");
     try {
-      const web3 = new Web3(window.ethereum);
+      const web3 = getWeb3Provider(selectedNetwork);
       const routerContract = new web3.eth.Contract(routerABI, routerAddress);
       await routerContract.methods.postChatMessage(chatInput).send({ from: account });
       setStatus("Chat message posted.");
@@ -944,7 +1002,7 @@ export default function RouterPage() {
     }
   }
 
-  // ApexCharts options and series for candlestick chart.
+  // ----- ApexCharts Options & Series for Candlestick Chart ----- //
   const chartOptions = {
     chart: {
       type: "candlestick",
@@ -1000,7 +1058,7 @@ export default function RouterPage() {
               boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
               margin: "0 auto",
               maxWidth: "1200px",
-              width: "100%",
+              width: "100%"
             }}
           >
             <div
@@ -1009,7 +1067,7 @@ export default function RouterPage() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "10px",
+                marginBottom: "10px"
               }}
             >
               <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
@@ -1025,7 +1083,7 @@ export default function RouterPage() {
                       border: "none",
                       backgroundColor: "#f0f0f0",
                       borderRadius: "4px",
-                      cursor: "pointer",
+                      cursor: "pointer"
                     }}
                   >
                     {label}
@@ -1149,7 +1207,7 @@ export default function RouterPage() {
 
 
 
-// Helper for "time ago" formatting.
+// ----- Helper for "time ago" formatting -----
 function timeSince(timestamp) {
   if (!timestamp) return "";
   const now = Date.now();
