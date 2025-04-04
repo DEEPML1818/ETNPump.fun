@@ -3,17 +3,16 @@
 import { useState, useEffect, useContext } from 'react';
 import Web3 from 'web3';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import '../pumpfun-dashboard.css';
 import { NetworkContext } from '../NetworkProvider';
 
 // ----- Helper: Provider Fallback using selectedNetwork -----
 function getWeb3Provider(selectedNetwork) {
-  // If a wallet is connected, use its provider.
   if (window.ethereum && window.ethereum.selectedAddress) {
     console.log("Using wallet provider:", window.ethereum);
     return new Web3(window.ethereum);
   }
-  // Otherwise, create a Web3 instance using the RPC URL from selectedNetwork.
   return new Web3(new Web3.providers.HttpProvider(selectedNetwork.rpc));
 }
 
@@ -75,30 +74,22 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState(["meme", "nft", "stonks", "compression", "degen"]);
   const [activeFilter, setActiveFilter] = useState("");
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // Use the factory address from the selected network.
   const factoryAddress = selectedNetwork.factoryAddress;
 
   useEffect(() => {
     async function init() {
-      // Use our helper provider: if wallet connected, use it; else, fallback RPC.
       const web3 = getWeb3Provider(selectedNetwork);
-      // Check if we're in fallback mode.
       const isFallback = !(window.ethereum && window.ethereum.selectedAddress);
-
       try {
-        // Try to get accounts (if wallet is connected, else may be empty)
         const accounts = await web3.eth.requestAccounts().catch(() => []);
         if (accounts.length > 0) setAccount(accounts[0]);
-
-        // Create a contract instance using the factory ABI and factoryAddress.
         const factory = new web3.eth.Contract(factoryABI, factoryAddress);
-        // Fetch all TokenAndRouterCreated events.
         const creationEvents = await factory.getPastEvents("TokenAndRouterCreated", {
           fromBlock: 0,
           toBlock: "latest"
         });
-        // Parse events into token data.
         const tokenData = creationEvents.map(ev => {
           const { creator, tokenAddress, routerAddress, name, symbol, initialSupply, timestamp, description, telegram, xProfile, website, imageURL } = ev.returnValues;
           return { 
@@ -116,8 +107,6 @@ export default function DashboardPage() {
             imageURL 
           };
         });
-
-        // Enrich tokens with total tokens bought from Trade events.
         const enrichedPromises = tokenData.map(async (item) => {
           let boughtTotal = 0;
           try {
@@ -125,16 +114,11 @@ export default function DashboardPage() {
               const router = new web3.eth.Contract([routerTradeEventABI], item.routerAddress);
               let tradeEvents;
               if (isFallback) {
-                // Fallback mode: fetch all events then filter in JS.
-                tradeEvents = await router.getPastEvents("Trade", {
-                  fromBlock: 0,
-                  toBlock: "latest"
-                });
+                tradeEvents = await router.getPastEvents("Trade", { fromBlock: 0, toBlock: "latest" });
                 tradeEvents = tradeEvents.filter(ev =>
                   ev.returnValues.tokenAddress.toLowerCase() === item.tokenAddress.toLowerCase()
                 );
               } else {
-                // Wallet connected: we can use RPC filtering.
                 tradeEvents = await router.getPastEvents("Trade", {
                   filter: { tokenAddress: item.tokenAddress },
                   fromBlock: 0,
@@ -152,7 +136,6 @@ export default function DashboardPage() {
           }
           return { ...item, bought: boughtTotal };
         });
-
         const enriched = await Promise.all(enrichedPromises);
         setTokens(enriched);
         setStatus(`Found ${enriched.length} tokens.`);
@@ -160,6 +143,7 @@ export default function DashboardPage() {
         console.error(err);
         setStatus("Failed to load tokens.");
       }
+      setLoading(false);
     }
     init();
   }, [factoryAddress, selectedNetwork]);
@@ -177,71 +161,147 @@ export default function DashboardPage() {
   const handleSearch = (e) => setSearchTerm(e.target.value);
   const selectFilter = (filter) => setActiveFilter(filter === activeFilter ? "" : filter);
 
+  // Framer Motion variants for overall page and elements.
+  const pageVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.3 } }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.3, delay: i * 0.1 }
+    })
+  };
+
+  const buttonVariants = {
+    hover: { scale: 1.05 },
+    tap: { scale: 0.95 }
+  };
+
   return (
-    <div className="dashboard-page">
+    <motion.div
+      className="dashboard-page"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
       {/* Animated Ticker */}
-      <div className="ticker-container">
-        <div className="ticker-text">
+      <motion.div className="ticker-container" whileHover={{ scale: 1.02 }}>
+        <motion.div className="ticker-text" animate={{ x: ['100%', '-100%'] }} transition={{ duration: 20, ease: "linear", repeat: Infinity }}>
           Live feed: new tokens & trades will appear here...
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
       {/* Dashboard Header */}
-      <div className="dashboard-header">
+      <motion.div className="dashboard-header" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <h1>[start a new coin]</h1>
         <p className="subtext">
           {account ? `Connected as ${account}` : 'Not connected'}
         </p>
-      </div>
+      </motion.div>
       {/* Top Actions */}
-      <div className="top-actions">
-        <Link href="/create-token">
-          <button className="start-coin-btn">start a new coin</button>
+      <motion.div className="top-actions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <Link href="/create-token" passHref>
+          <motion.button
+            className="start-coin-btn"
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+          >
+            start a new coin
+          </motion.button>
         </Link>
-        <div className="search-box">
+        <motion.div className="search-box" variants={buttonVariants}>
           <input type="text" placeholder="search for token" value={searchTerm} onChange={handleSearch} />
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
       {/* Filter Buttons */}
-      <div className="filter-row">
+      <motion.div className="filter-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         {filters.map((f, idx) => (
-          <button key={idx} className="filter-btn" style={{ backgroundColor: activeFilter === f ? '#00d18f' : undefined }} onClick={() => selectFilter(f)}>
+          <motion.button
+            key={idx}
+            className="filter-btn"
+            style={{ backgroundColor: activeFilter === f ? '#00d18f' : undefined }}
+            onClick={() => selectFilter(f)}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+          >
             {f}
-          </button>
+          </motion.button>
         ))}
-      </div>
-      {status && <p style={{ textAlign: 'center', marginBottom: '1rem' }}>{status}</p>}
+      </motion.div>
+      {status && <motion.p style={{ textAlign: 'center', marginBottom: '1rem' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{status}</motion.p>}
       {/* Token Feed */}
-      <div className="token-feed">
-        {filteredTokens.map((token, idx) => {
-          const timeAgo = timeSince(token.createdAt);
-          const displayImage = token.imageURL && token.imageURL.trim() !== ""
-            ? token.imageURL
-            : "https://via.placeholder.com/64?text=No+Img";
-          return (
-            <div className="token-card" key={idx}>
-              <img src={displayImage} alt="token" className="token-img" />
-              <div className="token-info">
-                <div className="token-name">
-                  {token.name} ({token.symbol})
-                </div>
-                <div className="token-desc">{token.description}</div>
-                <div className="token-meta">Created {timeSince(token.createdAt)} ago</div>
-              </div>
-              <div className="token-actions">
-                <Link href={`/router/${token.routerAddress}`}>
-                  <button className="trade-btn">Trade</button>
-                </Link>
-              </div>
-            </div>
-          );
-        })}
-        {filteredTokens.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#ccc' }}>
+      <motion.div className="token-feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <AnimatePresence>
+          {loading ? (
+            Array.from({ length: 6 }).map((_, idx) => (
+              <motion.div
+                className="token-card skeleton"
+                key={idx}
+                custom={idx}
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={cardVariants}
+              >
+                <div className="skeleton-img" style={{ width: 48, height: 48, borderRadius: '50%', background: '#444', marginBottom: '0.5rem' }}></div>
+                <div className="skeleton-info" style={{ width: '80%', height: 10, background: '#444', marginBottom: '0.3rem' }}></div>
+                <div className="skeleton-info" style={{ width: '60%', height: 8, background: '#444' }}></div>
+              </motion.div>
+            ))
+          ) : (
+            filteredTokens.map((token, idx) => {
+              const displayImage = token.imageURL && token.imageURL.trim() !== ""
+                ? token.imageURL
+                : "https://via.placeholder.com/64?text=No+Img";
+              return (
+                <motion.div
+                  className="token-card"
+                  key={idx}
+                  custom={idx}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  variants={cardVariants}
+                >
+                  <img src={displayImage} alt="token" className="token-img" />
+                  <div className="token-info">
+                    <div className="token-name">
+                      {token.name} ({token.symbol})
+                    </div>
+                    <div className="token-desc">{token.description}</div>
+                    <div className="token-meta">Created {timeSince(token.createdAt)} ago</div>
+                  </div>
+                  <div className="token-actions">
+                    <Link href={`/router/${token.routerAddress}`} passHref>
+                      <motion.button
+                        className="trade-btn"
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
+                      >
+                        Trade
+                      </motion.button>
+                    </Link>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </AnimatePresence>
+        {!loading && filteredTokens.length === 0 && (
+          <motion.p style={{ textAlign: 'center', color: '#ccc' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             No tokens match your search/filter.
-          </p>
+          </motion.p>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

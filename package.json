@@ -20,6 +20,7 @@
     "date-fns": "^4.1.0",
     "ethers": "^5.8.0",
     "lightweight-charts": "^5.0.3",
+    "motion": "^12.6.3",
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",

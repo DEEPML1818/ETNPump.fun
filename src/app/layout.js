@@ -1,12 +1,14 @@
-// app/layout.js (or layout.jsx)
 'use client';
 
 import { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import CustomButton from './components/CustomButton'; // adjust the import path accordingly
+
 import Web3 from 'web3';
 import Web3Modal from 'web3modal';
 import WalletConnectProvider from '@walletconnect/web3-provider';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Define your networks
 export const NETWORKS = [
@@ -81,6 +83,41 @@ function Logo() {
         BETA
       </span>
     </div>
+  );
+}
+
+// Notification component for new transactions
+function TransactionNotification({ tx, onDismiss }) {
+  return (
+    <motion.div
+      className="tx-notification"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.4 }}
+      style={{
+        background: '#00d18f',
+        color: '#fff',
+        padding: '0.5rem 1rem',
+        borderRadius: '4px',
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 1000
+      }}
+    >
+      <div>New transaction: {tx}</div>
+      <button onClick={onDismiss} style={{
+        background: 'transparent',
+        border: 'none',
+        color: '#fff',
+        fontWeight: 'bold',
+        marginLeft: '1rem',
+        cursor: 'pointer'
+      }}>
+        X
+      </button>
+    </motion.div>
   );
 }
 
@@ -186,6 +223,9 @@ function MainLayout({ children }) {
         const newNet = NETWORKS.find(n => n.chainId.toLowerCase() === chainId.toLowerCase());
         if (newNet) setSelectedNetwork(newNet);
       });
+
+      // Simulate a new transaction notification after wallet connect.
+      setRecentTxs(prev => [...prev, 'Wallet connected']);
     } catch (err) {
       console.error('Error connecting wallet:', err);
     } finally {
@@ -216,81 +256,149 @@ function MainLayout({ children }) {
     if (newNet) setSelectedNetwork(newNet);
   };
 
-  // Layout styles (can be inline or external)
-  const layoutStyles = {
-    header: { 
-      background: '#222', 
-      color: '#fff', 
-      padding: '0.8rem 1rem', 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center' 
-    },
-    leftHeader: { display: 'flex', alignItems: 'center', gap: '1rem' },
-    navLink: { marginRight: '1rem', color: 'inherit', textDecoration: 'none' },
-    rightHeader: { display: 'flex', alignItems: 'center', gap: '1rem' },
-    accountText: { fontSize: '0.9rem' },
-    connectBtn: { 
-      background: '#00d18f', 
-      border: 'none', 
-      color: '#fff', 
-      padding: '0.5rem 1rem', 
-      borderRadius: '4px', 
-      cursor: 'pointer' 
-    },
-    disconnectBtn: { 
-      background: '#ff1744', 
-      border: 'none', 
-      color: '#fff', 
-      padding: '0.5rem 1rem', 
-      borderRadius: '4px', 
-      cursor: 'pointer' 
-    },
-    networkSelect: { padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' },
-    footer: { background: '#222', color: '#ccc', textAlign: 'center', padding: '0.8rem 1rem' }
+  // Animation variants for header buttons and page elements.
+  const buttonVariants = {
+    hover: { scale: 1.05 },
+    tap: { scale: 0.95 }
+  };
+
+  const pageVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.3 } }
   };
 
   return (
     <>
-      <header style={layoutStyles.header}>
-        <div style={layoutStyles.leftHeader}>
-          {/* Logo and stage badge */}
+      <motion.header
+        style={{
+          background: '#222',
+          color: '#fff',
+          padding: '0.8rem 1rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Logo />
           <nav>
-            <Link href="/create-token" style={layoutStyles.navLink}>Create Token</Link>
-            <Link href="/dashboard" style={layoutStyles.navLink}>Dashboard</Link>
+            <Link href="/create-token" legacyBehavior>
+              <motion.a
+                style={{ marginRight: '1rem', color: 'inherit', textDecoration: 'none' }}
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+              >
+                Create Token
+              </motion.a>
+            </Link>
+            <Link href="/dashboard" legacyBehavior>
+              <motion.a
+                style={{ marginRight: '1rem', color: 'inherit', textDecoration: 'none' }}
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+              >
+                Dashboard
+              </motion.a>
+            </Link>
           </nav>
-        </div>
-        <div style={layoutStyles.rightHeader}>
-          <select
+        </motion.div>
+        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <motion.select
             value={selectedNetwork.chainId.toLowerCase()}
             onChange={handleNetworkChange}
-            style={layoutStyles.networkSelect}
+            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
           >
             {NETWORKS.map(net => (
               <option key={net.chainId} value={net.chainId.toLowerCase()}>
                 {net.name}
               </option>
             ))}
-          </select>
+          </motion.select>
           {account ? (
             <>
-              <span style={layoutStyles.accountText}>
+              <motion.span style={{ fontSize: '0.9rem' }}>
                 {account.slice(0,6)}...{account.slice(-4)}
-              </span>
-              <button onClick={disconnectWallet} style={layoutStyles.disconnectBtn}>Disconnect</button>
+              </motion.span>
+              <motion.button
+                onClick={disconnectWallet}
+                style={{
+                  background: '#ff1744',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                variants={buttonVariants}
+                whileHover="hover"
+                whileTap="tap"
+              >
+                Disconnect
+              </motion.button>
             </>
           ) : (
-            <button onClick={connectWallet} style={layoutStyles.connectBtn} disabled={connecting}>
+            <motion.button
+              onClick={connectWallet}
+              style={{
+                background: '#00d18f',
+                border: 'none',
+                color: '#fff',
+                padding: '0.5rem 1rem',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+              disabled={connecting}
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
+            >
               {connecting ? "Connecting..." : "Connect ETn Wallet"}
-            </button>
+            </motion.button>
           )}
-        </div>
-      </header>
-      <main>{children}</main>
-      <footer style={layoutStyles.footer}>
+        </motion.div>
+      </motion.header>
+      
+      <motion.main variants={pageVariants} initial="initial" animate="animate">
+        {children}
+      </motion.main>
+      
+      <motion.footer
+        style={{
+          background: '#222',
+          color: '#ccc',
+          textAlign: 'center',
+          padding: '0.8rem 1rem'
+        }}
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+      >
         &copy; {new Date().getFullYear()} Welcome to ETNPump.fun
-      </footer>
+      </motion.footer>
+
+      {/* Transaction Notifications */}
+      <AnimatePresence>
+        {recentTxs.map((tx, index) => (
+          <TransactionNotification
+            key={index}
+            tx={tx}
+            onDismiss={() =>
+              setRecentTxs(prev => prev.filter((_, i) => i !== index))
+            }
+          />
+        ))}
+      </AnimatePresence>
     </>
   );
 }
