@@ -1,27 +1,21 @@
 "use client";
 
-import { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "next/navigation";
 import Web3 from "web3";
 import BN from "bn.js";
 import dynamic from "next/dynamic";
 import "../../pumpfun-router.css";
 import { NetworkContext } from "../../NetworkProvider";
-// Import ethers helpers for v6:
-import { ethers, formatUnits, parseUnits } from "ethers";
-
-// Dynamically import ApexCharts to avoid SSR issues.
-const LightweightChart = dynamic(() => import("./LightweightChart"), { ssr: false });
-const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import { ethers } from "ethers";
+import { createChart, PriceScaleMode } from "lightweight-charts";
 
 // ----- Provider Helper Functions ----- //
 function getWeb3Provider(selectedNetwork) {
-  // If a wallet is connected, use its provider.
   if (window.ethereum && window.ethereum.selectedAddress) {
     console.log("Using wallet provider:", window.ethereum);
     return new Web3(window.ethereum);
   }
-  // Otherwise, create a Web3 instance using the RPC URL from selectedNetwork.
   return new Web3(new Web3.providers.HttpProvider(selectedNetwork.rpc));
 }
 
@@ -34,7 +28,6 @@ async function getEthersProvider(selectedNetwork) {
   console.log("Using fallback ethers provider:", FALLBACK_RPC);
   return new ethers.providers.JsonRpcProvider(FALLBACK_RPC);
 }
-
 
 // ----- Helper Functions for Providers ----- //
 
@@ -642,17 +635,11 @@ const tokenABI = [
   }
 ];
 
-// ----- Off-Chain Aggregator Logic (for Router Page) ----- //
+// ----- Off-Chain Aggregator Logic (for Router Page) -----
 
-// We'll bucket data every 60 seconds.
-// ----- Aggregator Logic ----- //
-// We bucket events in 60-second intervals.
-// We'll bucket data in 60-second intervals.
-// Bucket interval in seconds.
 const BUCKET_INTERVAL = 60;
 const AGGREGATOR_INTERVAL = BUCKET_INTERVAL;
 
-// Listen for events and bucket the data.
 async function startAggregator(routerAddress, aggregatorBuckets, selectedNetwork) {
   if (!routerAddress) return;
   if (aggregatorBuckets[routerAddress]) return; // Already started
@@ -714,7 +701,6 @@ function getAggregatedData(routerAddress, aggregatorBuckets) {
   return bucketArray;
 }
 
-// Fallback: Fetch getPriceHistory from contract.
 async function fetchFallbackPriceHistory(routerAddress, selectedNetwork) {
   try {
     const web3 = getWeb3Provider(selectedNetwork);
@@ -744,34 +730,103 @@ async function fetchFallbackPriceHistory(routerAddress, selectedNetwork) {
   }
 }
 
-// ----- Error Boundary for ApexChart -----
-import React from "react";
-class ChartErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error("ApexChart Error:", error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return <div>Error rendering chart: {this.state.error.message}</div>;
+// ----- TradingViewChart Component -----
+
+function TradingViewChart({ aggregatedData, tokenSymbol }) {
+  const chartContainerRef = useRef();
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+
+  // Initialize chart only once.
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 600,
+      layout: {
+        backgroundColor: "#ffffff",
+        textColor: "#333",
+      },
+      grid: {
+        vertLines: { color: "#eee" },
+        horzLines: { color: "#eee" },
+      },
+      timeScale: {
+        timeVisible: true,
+        borderColor: "#ccc",
+      },
+      rightPriceScale: {
+        scaleMargins: {
+          top: 0.05,
+          bottom: 0.05,
+        },
+        mode: PriceScaleMode.Normal,
+      },
+    });
+
+    const areaSeries = chart.addAreaSeries({
+      topColor: "rgba(38,198,218, 0.56)",
+      bottomColor: "rgba(38,198,218, 0.04)",
+      lineColor: "rgba(38,198,218, 1)",
+      lineWidth: 3,
+      priceFormat: {
+        type: "price",
+        precision: 16,
+        minMove: 0.0000000000000001,
+      },
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = areaSeries;
+
+    const handleResize = () => {
+      chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
+  }, []);
+
+  // Update series data when aggregatedData changes.
+  useEffect(() => {
+    if (!seriesRef.current) return;
+    const formattedData = aggregatedData.map((bucket) => ({
+      time: bucket.startTime,
+      value: bucket.close,
+    }));
+    seriesRef.current.setData(formattedData);
+    // Optionally, you can adjust the time scale if needed:
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
     }
-    return this.props.children;
-  }
+  }, [aggregatedData]);
+
+  return (
+    <div
+      ref={chartContainerRef}
+      style={{
+        position: "relative",
+        margin: "0 auto",
+        width: "80%",
+        maxWidth: "1500px",
+        height: "600px",
+      }}
+    />
+  );
 }
 
-// ----- Router Page Component -----
+// ----- Main Router Page Component -----
+
 export default function RouterPage() {
   const params = useParams();
   const routerAddress = params.router || params.token;
   const { selectedNetwork } = useContext(NetworkContext);
 
-  // Basic state hooks.
+  // State hooks.
   const [account, setAccount] = useState("");
   const [status, setStatus] = useState("");
   const [tokenAddress, setTokenAddress] = useState("");
@@ -790,7 +845,7 @@ export default function RouterPage() {
   const [priceHistory, setPriceHistory] = useState([]);
   const [aggregatedData, setAggregatedData] = useState([]);
 
-  // Ref to hold aggregator buckets.
+  // Ref for aggregator buckets.
   const aggregatorRef = useRef({});
 
   // Start aggregator and update aggregated data every 5 seconds.
@@ -804,7 +859,6 @@ export default function RouterPage() {
     })();
     const interval = setInterval(async () => {
       let data = getAggregatedData(routerAddress, aggregatorRef.current);
-      // If no off-chain data, use fallback.
       if (data.length === 0) {
         data = await fetchFallbackPriceHistory(routerAddress, selectedNetwork);
       }
@@ -895,7 +949,7 @@ export default function RouterPage() {
 
   async function fetchTrades() {
     try {
-      // (Your existing trade fetching logic here)
+      // Your existing trade fetching logic here.
     } catch (err) {
       console.error("Error fetching trades:", err);
     }
@@ -903,7 +957,7 @@ export default function RouterPage() {
 
   async function fetchChatMessages() {
     try {
-      // (Your existing chat fetching logic here)
+      // Your existing chat fetching logic here.
     } catch (err) {
       console.error("Error fetching chat messages:", err);
     }
@@ -1003,29 +1057,6 @@ export default function RouterPage() {
     }
   }
 
-  // ----- ApexCharts Options & Series for Candlestick Chart ----- //
-  const chartOptions = {
-    chart: {
-      type: "candlestick",
-      height: 400,
-      animations: { enabled: true }
-    },
-    title: { text: `${tokenSymbol || "Token"} Price History`, align: "left" },
-    xaxis: { type: "datetime" },
-    yaxis: { tooltip: { enabled: true } },
-    tooltip: { x: { format: "dd MMM HH:mm" } }
-  };
-
-  const chartSeries = [
-    {
-      name: "Price",
-      data: aggregatedData.map((bucket) => ({
-        x: new Date(bucket.startTime * 1000),
-        y: [bucket.open, bucket.high, bucket.low, bucket.close]
-      }))
-    }
-  ];
-
   return (
     <div className="router-page">
       {/* Top Bar */}
@@ -1048,7 +1079,7 @@ export default function RouterPage() {
 
       {/* Main Content */}
       <div className="router-main-content">
-        {/* Chart Column */}
+        {/* Chart Column using TradingView Lightweight-Charts */}
         <div className="chart-column" style={{ width: "100%", marginBottom: "20px" }}>
           <div
             className="chart-box"
@@ -1059,7 +1090,7 @@ export default function RouterPage() {
               boxShadow: "0px 2px 10px rgba(0,0,0,0.1)",
               margin: "0 auto",
               maxWidth: "1200px",
-              width: "100%"
+              width: "100%",
             }}
           >
             <div
@@ -1068,7 +1099,7 @@ export default function RouterPage() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "10px"
+                marginBottom: "10px",
               }}
             >
               <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
@@ -1084,7 +1115,7 @@ export default function RouterPage() {
                       border: "none",
                       backgroundColor: "#f0f0f0",
                       borderRadius: "4px",
-                      cursor: "pointer"
+                      cursor: "pointer",
                     }}
                   >
                     {label}
@@ -1092,15 +1123,13 @@ export default function RouterPage() {
                 ))}
               </div>
             </div>
-            <ChartErrorBoundary>
-              {aggregatedData.length ? (
-                <ApexChart options={chartOptions} series={chartSeries} type="line" height={400} />
-              ) : (
-                <div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
-                  No trades yet. Make a trade to see the chart update.
-                </div>
-              )}
-            </ChartErrorBoundary>
+            {aggregatedData.length ? (
+              <TradingViewChart aggregatedData={aggregatedData} tokenSymbol={tokenSymbol} />
+            ) : (
+              <div style={{ textAlign: "center", color: "#888", padding: "20px", fontSize: "1rem" }}>
+                No trades yet. Make a trade to see the chart update.
+              </div>
+            )}
           </div>
         </div>
 
@@ -1204,17 +1233,4 @@ export default function RouterPage() {
       </div>
     </div>
   );
-}
-
-
-
-// ----- Helper for "time ago" formatting -----
-function timeSince(timestamp) {
-  if (!timestamp) return "";
-  const now = Date.now();
-  const secondsPast = Math.floor((now - timestamp) / 1000);
-  if (secondsPast < 60) return `${secondsPast}s`;
-  if (secondsPast < 3600) return `${Math.floor(secondsPast / 60)}m`;
-  if (secondsPast < 86400) return `${Math.floor(secondsPast / 3600)}h`;
-  return `${Math.floor(secondsPast / 86400)}d`;
 }
