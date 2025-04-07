@@ -14,13 +14,27 @@ module.exports = {
     },
   },
   networks: {
+    // Local network configuration for local testing.
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      // Optional: Specify accounts if needed. Otherwise, Hardhat will auto-generate a list.
+      // accounts: process.env.LOCAL_PRIVATE_KEYS ? process.env.LOCAL_PRIVATE_KEYS.split(",") : undefined,
+    },
     etn: {
       url: "https://rpc.ankr.com/electroneum", // Replace with actual ETN RPC URL
-      accounts: [process.env.PRIVATE_KEY, process.env.PRIVATE_KEY_USER1, process.env.PRIVATE_KEY_USER2], // Store private key in .env
+      accounts: [
+        process.env.PRIVATE_KEY,
+        process.env.PRIVATE_KEY_USER1,
+        process.env.PRIVATE_KEY_USER2,
+      ],
     },
     "etn-testnet": {
       url: "https://rpc.ankr.com/electroneum_testnet", // Replace with actual ETN RPC URL
-      accounts: [process.env.PRIVATE_KEY, process.env.PRIVATE_KEY_USER1, process.env.PRIVATE_KEY_USER2], // Store private key in .env
+      accounts: [
+        process.env.PRIVATE_KEY,
+        process.env.PRIVATE_KEY_USER1,
+        process.env.PRIVATE_KEY_USER2,
+      ],
     },
   },
   etherscan: {
@@ -37,3 +51,9 @@ module.exports = {
     ],
   },
 };
+// You can add custom tasks or scripts here if needed
+// For example, you can create a task to deploy contracts or interact with them
+// task("deploy", "Deploys the contract").setAction(async (taskArgs, hre) => {
+//   const [deployer] = await hre.ethers.getSigners();
+//   console.log("Deploying contracts with the account:", deployer.address);
+//   const ContractFactory = await hre.ethers.getContractFactory("YourContract"); // Replace with your contract name

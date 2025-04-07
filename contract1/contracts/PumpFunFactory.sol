@@ -13,7 +13,7 @@ import "./PumpFunRouter.sol";
  *         Only a target native reserve parameter is required.
  */
 contract PumpFunFactory {
-    // Treasury contract address, set in constructor
+    // Treasury contract address, set in constructor.
     address public treasuryAddress;
 
     address[] public deployedTokens;
@@ -21,6 +21,8 @@ contract PumpFunFactory {
 
     // Default max sell amount (in token units with 18 decimals)
     uint256 public constant DEFAULT_MAX_SELL_AMOUNT = 1000 * 1e18;
+    // Fixed liquidity reserve for the router (example: 50 ether).
+    uint256 public constant DEFAULT_LIQUIDITY_RESERVE = 50 ether;
 
     event TokenAndRouterCreated(
         address indexed creator,
@@ -139,12 +141,14 @@ contract PumpFunFactory {
 
         // Deploy router (acts as liquidity pool) with the new dynamic bonding curve parameters.
         // targetToken is set to initialSupply.
+        // NOTE: We now provide 6 arguments (the 6th being liquidity reserve) to match the PumpFunRouter constructor.
         PumpFunRouter router = new PumpFunRouter(
             address(token),
             targetNative,       // Target native coin reserve for the bonding curve.
             initialSupply,      // Target token supply is set to the initial supply.
             treasuryAddress,
-            DEFAULT_MAX_SELL_AMOUNT
+            DEFAULT_MAX_SELL_AMOUNT,
+            DEFAULT_LIQUIDITY_RESERVE  // Liquidity reserve (e.g., 50 ether)
         );
         deployedRouters.push(address(router));
 

@@ -5,7 +5,8 @@ async function main() {
   // Set your custom treasury address here (or supply via environment variable).
   const CUSTOM_TREASURY = process.env.TREASURY_ADDRESS || "";
   // Set your PumpFunFactory contract address here (or supply via environment variable).
-  const FACTORY_ADDRESS = process.env.FACTORY_ADDRESS || "0xd05e171d276f056C9986C8BD8ED021F50C9a6318";
+  const FACTORY_ADDRESS =
+    process.env.FACTORY_ADDRESS || "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
   // Retrieve signers.
   const [deployer, user1, user2] = await ethers.getSigners();
@@ -23,8 +24,6 @@ async function main() {
   const TARGET_NATIVE = ethers.parseEther("1000000"); // e.g., target native reserve in wei
   // For initial supply, we use 1,000,000 tokens (with 18 decimals)
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
-  // The factory will set targetToken equal to initialSupply.
-  // The factory uses a default max sell amount as defined in the contract.
 
   // Get the PumpFunFactory contract instance.
   const PumpFunFactory = await ethers.getContractFactory("PumpFunFactory");
@@ -58,114 +57,121 @@ async function main() {
     { name: "Bitcoin Cash", symbol: "BCH", description: "Peer-to-peer electronic cash.", image: "https://cryptologos.cc/logos/bitcoin-cash-bch-logo.png?v=014" }
   ];
 
-  // Arrays to store created token and router addresses for later stress testing.
-  const deployedRouters = [];
-  const deployedTokens = [];
-
-  // Loop through each token definition, create the token and router via the factory,
-  // and then attach the PumpFunRouter instance.
-  for (const tokenDef of tokenDefinitions) {
-    console.log(`\nCreating token: ${tokenDef.name} (${tokenDef.symbol})`);
-    // Call the factory's createToken function.
-    const tx = await factory.createToken(
-      tokenDef.name,
-      tokenDef.symbol,
-      INITIAL_SUPPLY,
-      tokenDef.description,
-      tokenDef.image,
-      TARGET_NATIVE
-    );
-    const receipt = await tx.wait();
-    
-    // Manually parse the logs for the TokenAndRouterCreated event.
-    let tokenAddress, routerAddress;
-    const iface = factory.interface;
-    for (const log of receipt.logs) {
-      try {
-        const parsedLog = iface.parseLog(log);
-        if (parsedLog.name === "TokenAndRouterCreated") {
-          tokenAddress = parsedLog.args.tokenAddress;
-          routerAddress = parsedLog.args.routerAddress;
-          break;
-        }
-      } catch (err) {
-        continue; // Skip logs that don't belong to our factory
-      }
-    }
-    if (!tokenAddress || !routerAddress) {
-      console.error("TokenAndRouterCreated event not found for", tokenDef.name);
-      continue;
-    }
-    console.log(`${tokenDef.name} token deployed at: ${tokenAddress}`);
-    console.log(`${tokenDef.name} router deployed at: ${routerAddress}`);
-
-    deployedTokens.push(tokenAddress);
-    deployedRouters.push(routerAddress);
-
-    // Attach the PumpFunRouter contract for interactions.
-    const PumpFunRouter = await ethers.getContractFactory("PumpFunRouter");
-    const router = PumpFunRouter.attach(routerAddress);
-
-    // ---- Stress Test the Router Functions ----
-    console.log(`\n=== Stress Testing ${tokenDef.name} Router ===`);
-
-    // Batch Buy: Perform 10 iterations (alternating between small and larger ETH amounts) by user1.
-    for (let j = 0; j < 10; j++) {
-      const buyAmount = (j % 2 === 0)
-        ? ethers.parseEther("0.1")
-        : ethers.parseEther("1");
-      console.log(`Iteration ${j + 1}: User1 buying with ${buyAmount.toString()} wei`);
-      const txBuy = await router.connect(user1).batchBuy([buyAmount], [0], { value: buyAmount });
-      await txBuy.wait();
-    }
-    const priceHistory = await router.getPriceHistory();
-    console.log(`Price history length after buys: ${priceHistory.length}`);
-
-    // Batch Sell: Let user1 sell tokens in 5 iterations (selling one-fifth of their balance each time).
-    const PumpFunToken = await ethers.getContractFactory("PumpFunToken");
-    const tokenInstance = PumpFunToken.attach(tokenAddress);
-    const user1TokenBalance = await tokenInstance.balanceOf(user1.address); // returns bigint in ethers v6
-    if (user1TokenBalance > 0n) {
-      for (let k = 0; k < 5; k++) {
-        const sellAmount = user1TokenBalance / 5n;
-        console.log(`Iteration ${k + 1}: User1 selling ${sellAmount.toString()} token wei`);
+    // Arrays to store created token and router addresses for later stress testing.
+    const deployedRouters = [];
+    const deployedTokens = [];
+  
+    // Loop through each token definition.
+    for (const tokenDef of tokenDefinitions) {
+      console.log(`\nCreating token: ${tokenDef.name} (${tokenDef.symbol})`);
+      // Call the factory's createToken function.
+      const tx = await factory.createToken(
+        tokenDef.name,
+        tokenDef.symbol,
+        INITIAL_SUPPLY,
+        tokenDef.description,
+        tokenDef.image,
+        TARGET_NATIVE
+      );
+      const receipt = await tx.wait();
+  
+      // Manually parse the logs for the TokenAndRouterCreated event.
+      let tokenAddress, routerAddress;
+      const iface = factory.interface;
+      for (const log of receipt.logs) {
         try {
-          const txSell = await router.connect(user1).batchSell([sellAmount]);
-          await txSell.wait();
-        } catch (error) {
-          console.error("Sell failed (possibly due to max sell limit):", error.message);
+          const parsedLog = iface.parseLog(log);
+          if (parsedLog.name === "TokenAndRouterCreated") {
+            tokenAddress = parsedLog.args.tokenAddress;
+            routerAddress = parsedLog.args.routerAddress;
+            break;
+          }
+        } catch (err) {
+          continue; // Skip logs that don't belong to our factory
         }
       }
-    } else {
-      console.log("User1 has no tokens to sell for", tokenDef.name);
-    }
-
-    // Skip the administrative updates (updateMaxSellAmount, pause/resume) if not available.
-    // Additional Transactions: User2 performs 5 iterations of buys and sells.
-    for (let m = 0; m < 5; m++) {
-      const buyAmountUser2 = ethers.parseEther("0.05");
-      console.log(`User2 iteration ${m + 1}: buying with ${buyAmountUser2.toString()} wei`);
-      const txBuy2 = await router.connect(user2).batchBuy([buyAmountUser2], [0], { value: buyAmountUser2 });
-      await txBuy2.wait();
-
-      const user2TokenBalance = await tokenInstance.balanceOf(user2.address);
-      if (user2TokenBalance > 0n) {
-        const sellAmountUser2 = user2TokenBalance / 3n;
-        console.log(`User2 iteration ${m + 1}: selling ${sellAmountUser2.toString()} token wei`);
-        const txSell2 = await router.connect(user2).batchSell([sellAmountUser2]);
-        await txSell2.wait();
+      if (!tokenAddress || !routerAddress) {
+        console.error("TokenAndRouterCreated event not found for", tokenDef.name);
+        continue;
       }
+      console.log(`${tokenDef.name} token deployed at: ${tokenAddress}`);
+      console.log(`${tokenDef.name} router deployed at: ${routerAddress}`);
+  
+      deployedTokens.push(tokenAddress);
+      deployedRouters.push(routerAddress);
+  
+      // Attach the PumpFunRouter contract for interactions.
+      const PumpFunRouter = await ethers.getContractFactory("PumpFunRouter");
+      const router = PumpFunRouter.attach(routerAddress);
+  
+      // ---- Stress Test the Router Functions ----
+      console.log(`\n=== Stress Testing ${tokenDef.name} Router ===`);
+  
+      // Batch Buy: Perform 10 iterations by user1 with alternating large orders (10 or 40 ether).
+      for (let j = 0; j < 10; j++) {
+        const buyAmount = (j % 2 === 0)
+          ? ethers.parseEther("10")
+          : ethers.parseEther("40");
+        console.log(`Iteration ${j + 1}: User1 buying with ${buyAmount.toString()} wei`);
+        const txBuy = await router.connect(user1).batchBuy([buyAmount], [0], { value: buyAmount });
+        await txBuy.wait();
+      }
+      const priceHistoryAfterBuys = await router.getPriceHistory();
+      console.log(`Price history length after buys: ${priceHistoryAfterBuys.length}`);
+  
+      // Batch Sell: Let user1 sell tokens in 5 iterations (selling one-fifth of their balance each time).
+      const PumpFunToken = await ethers.getContractFactory("PumpFunToken");
+      const tokenInstance = PumpFunToken.attach(tokenAddress);
+      const user1TokenBalance = await tokenInstance.balanceOf(user1.address);
+      if (user1TokenBalance > 0n) {
+        for (let k = 0; k < 5; k++) {
+          const sellAmount = user1TokenBalance / 5n;
+          console.log(`Iteration ${k + 1}: User1 selling ${sellAmount.toString()} token wei`);
+          try {
+            const txSell = await router.connect(user1).batchSell([sellAmount]);
+            await txSell.wait();
+          } catch (error) {
+            console.error("Sell failed (possibly due to max sell limit):", error.message);
+          }
+        }
+      } else {
+        console.log("User1 has no tokens to sell for", tokenDef.name);
+      }
+  
+      // Additional Transactions: User2 performs 5 iterations of buys and sells with larger orders.
+      for (let m = 0; m < 5; m++) {
+        const buyAmountUser2 = (m % 2 === 0)
+          ? ethers.parseEther("10")
+          : ethers.parseEther("40");
+        console.log(`User2 iteration ${m + 1}: buying with ${buyAmountUser2.toString()} wei`);
+        const txBuy2 = await router.connect(user2).batchBuy([buyAmountUser2], [0], { value: buyAmountUser2 });
+        await txBuy2.wait();
+  
+        const user2TokenBalance = await tokenInstance.balanceOf(user2.address);
+        if (user2TokenBalance > 0n) {
+          const sellAmountUser2 = user2TokenBalance / 3n;
+          console.log(`User2 iteration ${m + 1}: selling ${sellAmountUser2.toString()} token wei`);
+          const txSell2 = await router.connect(user2).batchSell([sellAmountUser2]);
+          await txSell2.wait();
+        }
+      }
+  
+      // After all transactions for this token, display the final price history and current price.
+      const finalPriceHistory = await router.getPriceHistory();
+      const currentPrice = await router.getCurrentBondingPrice();
+      console.log(`\n${tokenDef.name} Final Price History:`, finalPriceHistory);
+      console.log(`${tokenDef.name} Current Bonding Price: ${currentPrice}`);
+  
     }
+  
+    console.log("\nStress testing complete. Deployed tokens and routers:");
+    console.log("Tokens:", deployedTokens);
+    console.log("Routers:", deployedRouters);
   }
-
-  console.log("\nStress testing complete. Deployed tokens and routers:");
-  console.log("Tokens:", deployedTokens);
-  console.log("Routers:", deployedRouters);
-}
-
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("Error during stress test:", error);
-    process.exit(1);
-  });
+  
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("Error during stress test:", error);
+      process.exit(1);
+    });

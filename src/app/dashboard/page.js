@@ -66,7 +66,31 @@ const routerTradeEventABI = {
   "type": "event"
 };
 
-// Framer Motion variants used by both components.
+// Minimal ABI for the router's live price method.
+// Adjust this as needed.
+const routerABI = [
+  {
+    "inputs": [],
+    "name": "getCurrentBondingPrice",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// Minimal Transfer event ABI for token mints.
+const tokenTransferEventABI = {
+  "anonymous": false,
+  "inputs": [
+    { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+    { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+    { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }
+  ],
+  "name": "Transfer",
+  "type": "event"
+};
+
+// Framer Motion variants.
 const pageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.5 } },
@@ -88,14 +112,33 @@ const buttonVariants = {
 };
 
 // --- TokenCard Component ---
-// This component manages its own click state to display a full-screen overlay modal.
+// Fetches live price every 5 seconds and displays token info.
 function TokenCard({ token, idx }) {
+  const { selectedNetwork } = useContext(NetworkContext);
+  const [livePrice, setLivePrice] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   const displayImage =
     token.imageURL && token.imageURL.trim() !== ""
       ? token.imageURL
       : "https://via.placeholder.com/64?text=No+Img";
+
+  useEffect(() => {
+    async function fetchPrice() {
+      try {
+        const web3 = getWeb3Provider(selectedNetwork);
+        const router = new web3.eth.Contract(routerABI, token.routerAddress);
+        const rawPrice = await router.methods.getCurrentBondingPrice().call();
+        const priceInNative = web3.utils.fromWei(rawPrice, "ether");
+        setLivePrice(priceInNative);
+      } catch (err) {
+        console.error("Error fetching live price for token", token.tokenAddress, err);
+      }
+    }
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 5000);
+    return () => clearInterval(interval);
+  }, [selectedNetwork, token.routerAddress, token.tokenAddress]);
 
   return (
     <>
@@ -125,7 +168,7 @@ function TokenCard({ token, idx }) {
               variants={buttonVariants}
               whileHover="hover"
               whileTap="tap"
-              onClick={(e) => e.stopPropagation()} // Prevent triggering modal
+              onClick={(e) => e.stopPropagation()}
             >
               Trade
             </motion.button>
@@ -133,7 +176,6 @@ function TokenCard({ token, idx }) {
         </div>
       </motion.div>
 
-      {/* Full-Screen Modal Overlay */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -154,7 +196,7 @@ function TokenCard({ token, idx }) {
               alignItems: 'center',
               zIndex: 1000
             }}
-            onClick={() => setShowModal(false)} // Close when clicking the overlay
+            onClick={() => setShowModal(false)}
           >
             <motion.div
               className="modal-content"
@@ -170,10 +212,10 @@ function TokenCard({ token, idx }) {
                 width: '90%',
                 color: '#000'
               }}
-              onClick={(e) => e.stopPropagation()} // Prevent modal close on content click
+              onClick={(e) => e.stopPropagation()}
             >
               <p><strong>Description:</strong> {token.description}</p>
-              <p><strong>Price:</strong> [Insert Price]</p>
+              <p><strong>Live Price:</strong> {livePrice ? `${livePrice} ETH` : "Loading..."}</p>
               <p><strong>Bought Recently:</strong> {token.bought}</p>
               <p>
                 <strong>Social:</strong>
@@ -211,9 +253,6 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
-
-  // New sorter state
-  // Defaulting to "featured" to match your screenshot
   const [sortOption, setSortOption] = useState("featured");
 
   const factoryAddress = selectedNetwork.factoryAddress;
@@ -249,11 +288,13 @@ export default function DashboardPage() {
             telegram, 
             xProfile, 
             website, 
-            imageURL 
+            imageURL,
+            bought: 0,         // initialize bought count
+            lastUpdatedBlock: 0  // for tracking event updates
           };
         });
 
-        // Enrich tokens with total tokens bought from Trade events.
+        // Enrich tokens with total tokens bought from initial trade events.
         const enrichedPromises = tokenData.map(async (item) => {
           let boughtTotal = 0;
           try {
@@ -296,6 +337,52 @@ export default function DashboardPage() {
     init();
   }, [factoryAddress, selectedNetwork]);
 
+  // --- Off-Chain Bought Update Effect ---
+// This effect polls every 10 seconds to fetch new trade and mint events.
+  useEffect(() => {
+    if (!tokens.length) return;
+    async function updateBought() {
+      const web3 = getWeb3Provider(selectedNetwork);
+      const latestBlock = await web3.eth.getBlockNumber();
+      const updatedTokens = await Promise.all(tokens.map(async token => {
+        let additionalBought = 0;
+        try {
+          // 1. Get new trade events from the router.
+          const router = new web3.eth.Contract([routerTradeEventABI], token.routerAddress);
+          const routerEvents = await router.getPastEvents("Trade", {
+            filter: { tokenAddress: token.tokenAddress },
+            fromBlock: token.lastUpdatedBlock || 0,
+            toBlock: "latest"
+          });
+          routerEvents.forEach(ev => {
+            if (ev.returnValues.isBuy) {
+              additionalBought += Number(ev.returnValues.amount);
+            }
+          });
+
+          // 2. Get new mint events from the token (Transfer from zero address).
+          const tokenContract = new web3.eth.Contract([tokenTransferEventABI], token.tokenAddress);
+          const transferEvents = await tokenContract.getPastEvents("Transfer", {
+            filter: { from: "0x0000000000000000000000000000000000000000" },
+            fromBlock: token.lastUpdatedBlock || 0,
+            toBlock: "latest"
+          });
+          transferEvents.forEach(ev => {
+            additionalBought += Number(ev.returnValues.value);
+          });
+
+          return { ...token, bought: token.bought + additionalBought, lastUpdatedBlock: latestBlock };
+        } catch (err) {
+          console.error("Error updating bought for token", token.tokenAddress, err);
+          return token;
+        }
+      }));
+      setTokens(updatedTokens);
+    }
+    const interval = setInterval(updateBought, 10000);
+    return () => clearInterval(interval);
+  }, [tokens, selectedNetwork]);
+
   // Filter tokens by search and filter criteria.
   let filteredTokens = tokens.filter(token => {
     const term = searchTerm.toLowerCase();
@@ -314,45 +401,26 @@ export default function DashboardPage() {
   // Sort tokens based on the selected sort option.
   switch (sortOption) {
     case 'featured':
-      // "Featured" might be your own custom logic or just default (no sorting).
-      // Currently, we do nothing here.
       break;
-
     case 'lastTrade':
-      // Example: Sort by the "last trade time" if you store it, or by 'bought' as a proxy.
-      // This is a placeholder—replace with your own logic.
       filteredTokens.sort((a, b) => b.bought - a.bought);
       break;
-
     case 'creationTime':
-      // Sort by creation time (newest first).
       filteredTokens.sort((a, b) => b.createdAt - a.createdAt);
       break;
-
     case 'lastReply':
-      // Placeholder: if you store a "lastReply" timestamp, sort by that.
-      // For now, we can just reverse the current array as a placeholder.
       filteredTokens.reverse();
       break;
-
     case 'marketCap':
-      // Placeholder: if you have a "marketCap" field, you can do something like:
-      // filteredTokens.sort((a, b) => b.marketCap - a.marketCap);
-      // For now, do nothing or a sample logic:
       filteredTokens.sort((a, b) => b.initialSupply - a.initialSupply);
       break;
-
     default:
-      // No sort or fallback logic
       break;
   }
 
   const handleSearch = (e) => setSearchTerm(e.target.value);
   const selectFilter = (filter) => setActiveFilter(filter === activeFilter ? "" : filter);
-
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-  };
+  const handleSortChange = (e) => setSortOption(e.target.value);
 
   return (
     <motion.div
@@ -411,8 +479,6 @@ export default function DashboardPage() {
             onChange={handleSearch}
           />
         </motion.div>
-
-        {/* Sorter Dropdown */}
         <motion.div className="sorter" style={{ marginLeft: '1rem' }}>
           <select value={sortOption} onChange={handleSortChange}>
             <option value="featured">sort: featured 🔥</option>
